@@ -3,21 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>社内予定・案件管理 v0.3</title>
+<title>社内予定・案件管理 v0.4</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
   <div>
     <div class="brand">社内予定・案件管理</div>
-    <div class="sub">案件IDを軸に、年・四半期・月・日を同じ予定データで表示</div>
+    <div class="sub">案件マスタ + 年 / 四半期 / 月 / 日</div>
   </div>
   <button id="resetBtn" class="ghost">初期データへ戻す</button>
 </header>
 
 <main>
   <nav class="tabs">
-    <button class="tab active" data-view="year">年</button>
+    <button class="tab active" data-view="projects">案件</button>
+    <button class="tab" data-view="year">年</button>
     <button class="tab" data-view="quarter">四半期</button>
     <button class="tab" data-view="month">月</button>
     <button class="tab" data-view="day">日</button>
@@ -25,7 +26,8 @@
 
   <section id="summary" class="summary"></section>
 
-  <section id="year" class="view"></section>
+  <section id="projects" class="view"></section>
+  <section id="year" class="view hidden"></section>
   <section id="quarter" class="view hidden"></section>
   <section id="month" class="view hidden"></section>
   <section id="day" class="view hidden"></section>

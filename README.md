@@ -1,20 +1,21 @@
-# 社内予定・案件管理 v0.3
+# 社内予定・案件管理 v0.4
 
-GitHub Pages向けの静的プロトタイプです。
+## 追加機能
+- 「案件」タブを追加
+- 案件ID、顧客名、案件名、期間、納期、予定工数、必要人員、主担当を登録
+- 登録案件が年・四半期・月ビューへ反映
+- 日ビューの予定登録時に登録済み案件を選択可能
+- 案件に紐づいた予定は全ビューへ共通反映
+- localStorage保存
 
-## 特徴
-- 年 / 四半期 / 月 / 日を同じタスクデータから表示
-- 確定 / 確認待ち / 仮予定 / 未割当を全ビューで共通表示
-- 確認待ち・仮予定・未割当は点滅
-- 日ビューから予定追加・削除
-- localStorage保存（ブラウザ内のみ）
+## GitHubへの更新方法
+既存 company-schedule リポジトリで
+Add file → Upload files
+から index.html / style.css / app.js / README.md をアップロードし、
+既存ファイルを置き換えて Commit changes。
 
-## GitHub Pages
-1. このフォルダの中身をGitHubリポジトリへアップロード
-2. Settings → Pages
-3. Deploy from a branch
-4. main / root を選択
+GitHub Pagesは設定変更不要です。
 
-## 次の段階
-Firebase Authentication + Firestore を追加すると、
-複数PC・スマホ間でリアルタイム共有できます。
+## 注意
+現段階はブラウザごとの保存です。
+複数PCで共有するには次段階で Firebase / Firestore を接続します。
