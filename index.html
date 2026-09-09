@@ -3,38 +3,44 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>社内予定・案件管理 v0.5.3</title>
-<link rel="stylesheet" href="style.css?v=053">
+<title>社内業務ポータル v0.6</title>
+<link rel="stylesheet" href="style.css?v=060">
 </head>
 <body>
 <header>
   <div>
-    <div class="brand">社内予定・案件管理</div>
-    <div class="sub">案件・休日・年/四半期/月/日を一元表示　<span style="opacity:.8">v0.5.3 mobile fix</span></div>
+    <div class="brand">社内業務ポータル</div>
+    <div class="sub">案件・予定・勤怠・社員・車両・顧客を共通キーで管理　v0.6</div>
   </div>
   <button id="resetBtn" class="ghost">初期データへ戻す</button>
 </header>
 
 <main>
-  <nav class="tabs">
-    <button class="tab active" data-view="projects">案件</button>
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-view="dashboard">概要</button>
+    <button class="tab" data-view="projects">案件</button>
     <button class="tab" data-view="year">年</button>
     <button class="tab" data-view="quarter">四半期</button>
     <button class="tab" data-view="month">月</button>
     <button class="tab" data-view="day">日</button>
+    <button class="tab" data-view="attendance">勤怠</button>
+    <button class="tab" data-view="masters">マスタ</button>
     <button class="tab" data-view="holidays">休日</button>
   </nav>
 
   <section id="summary" class="summary"></section>
 
-  <section id="projects" class="view"></section>
+  <section id="dashboard" class="view"></section>
+  <section id="projects" class="view hidden"></section>
   <section id="year" class="view hidden"></section>
   <section id="quarter" class="view hidden"></section>
   <section id="month" class="view hidden"></section>
   <section id="day" class="view hidden"></section>
+  <section id="attendance" class="view hidden"></section>
+  <section id="masters" class="view hidden"></section>
   <section id="holidays" class="view hidden"></section>
 </main>
 
-<script src="app.js?v=053"></script>
+<script src="app.js?v=060"></script>
 </body>
 </html>
