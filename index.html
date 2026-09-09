@@ -3,20 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>社内業務ポータル v1.1 実機テスト版</title>
-<link rel="stylesheet" href="style.css?v=110">
+<title>社内業務ポータル v2.0</title>
+<link rel="stylesheet" href="style.css?v=2.0-readonly">
 </head>
 <body>
 <header>
   <div>
     <div class="brand">社内業務ポータル</div>
-    <div class="sub">案件・予定・勤怠・社員・車両・顧客を共通キーで管理　v1.1 実機テスト版</div>
+    <div class="sub">案件・予定・勤怠・社員・車両・顧客を共通キーで管理　v1.1.1 実機テスト版</div>
   </div>
   <button id="resetBtn" class="ghost">初期データへ戻す</button>
 </header>
 
 <main>
   <nav class="tabs" id="tabs">
+    
     <button class="tab active" data-view="dashboard">概要</button>
     <button class="tab" data-view="projects">案件</button>
     <button class="tab" data-view="year">年</button>
@@ -44,6 +45,8 @@
 </main>
 <div id="modal" class="modal hidden"><div class="modal-backdrop" data-modal-close></div><div class="modal-card"><div class="modal-head"><h3 id="modalTitle">編集</h3><button class="modal-x" data-modal-close>×</button></div><div id="modalBody" class="modal-body"></div><div class="modal-foot"><button id="modalCancel" class="ghost">キャンセル</button><button id="modalSave" class="primary">保存</button></div></div></div>
 
-<script src="app.js?v=110"></script>
+<script src="./portal-v81-adapter.js?v=1"></script>
+<script src="time-snapshot-import.js?v=1"></script>
+  <script src="app.js?v=2.0-readonly"></script>
 </body>
 </html>
