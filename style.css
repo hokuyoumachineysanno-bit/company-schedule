@@ -96,3 +96,13 @@ textarea{min-height:68px}
 
 /* v1.0.1 day tab stability */
 .track{overflow:hidden}.hour{position:relative;z-index:1}
+
+/* v1.1 実機テスト：予定と勤怠を地続きに */
+.who .small{font-size:10px;color:#64748b;margin-top:2px}
+.labor-strip{display:flex;gap:6px;flex-wrap:wrap;margin:7px 0}
+.labor-strip span{font-size:10px;padding:4px 7px;border-radius:999px;background:#f1f5f9;color:#475569}
+.fieldtest-note{background:#f0fdf4;border:1px solid #86efac;color:#166534;border-radius:9px;padding:9px 11px;margin-bottom:10px;font-size:12px}
+@media(max-width:950px){
+ .who .small{font-size:9px}
+ .actions{display:flex;gap:6px;flex-wrap:wrap}
+}
