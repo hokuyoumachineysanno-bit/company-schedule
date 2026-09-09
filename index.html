@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>社内予定・案件管理 v0.4</title>
-<link rel="stylesheet" href="style.css">
+<title>社内予定・案件管理 v0.5.3</title>
+<link rel="stylesheet" href="style.css?v=053">
 </head>
 <body>
 <header>
   <div>
     <div class="brand">社内予定・案件管理</div>
-    <div class="sub">案件マスタ + 年 / 四半期 / 月 / 日</div>
+    <div class="sub">案件・休日・年/四半期/月/日を一元表示　<span style="opacity:.8">v0.5.3 mobile fix</span></div>
   </div>
   <button id="resetBtn" class="ghost">初期データへ戻す</button>
 </header>
@@ -22,6 +22,7 @@
     <button class="tab" data-view="quarter">四半期</button>
     <button class="tab" data-view="month">月</button>
     <button class="tab" data-view="day">日</button>
+    <button class="tab" data-view="holidays">休日</button>
   </nav>
 
   <section id="summary" class="summary"></section>
@@ -31,8 +32,9 @@
   <section id="quarter" class="view hidden"></section>
   <section id="month" class="view hidden"></section>
   <section id="day" class="view hidden"></section>
+  <section id="holidays" class="view hidden"></section>
 </main>
 
-<script src="app.js"></script>
+<script src="app.js?v=053"></script>
 </body>
 </html>
