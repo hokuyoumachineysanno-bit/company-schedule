@@ -173,10 +173,58 @@ function renderDay(){
 }
 
 function renderAttendance(){
- const rows=db.attendanceSummary.map(x=>`<tr><td>${empName(x.employeeId)}</td><td>${x.holidaysTaken}/${x.annualHolidays}</td><td>${x.paidLeaveTaken}</td><td>${x.annualWork}h</td><td>${x.overtime}h</td><td>${x.agreementPct}%</td></tr>`).join('');
- $('attendance').innerHTML=`<div class="banner info">勤怠管理 v8.0 連携イメージ：会社カレンダー・社員ID・年間就労・時間外・有休・36協定進捗をこの画面へ取り込む。</div>
- <div class=panel><h3>勤怠サマリー</h3><div class=tablewrap><table><tr><th>社員</th><th>休日取得</th><th>有休</th><th>年間就労</th><th>時間外</th><th>36協定</th></tr>${rows}</table></div></div>
- <div class=panel><h3>当日勤怠（サンプル）</h3><div class=tablewrap><table><tr><th>社員</th><th>日付</th><th>勤務区分</th><th>就労</th><th>時間外</th></tr>${db.attendance.filter(a=>a.date===currentDay).map(a=>`<tr><td>${empName(a.employeeId)}</td><td>${a.date}</td><td>${a.type}</td><td>${a.work}h</td><td>${a.overtime}h</td></tr>`).join('')}</table></div><p class=small>現段階はサンプル。Firebase化後に勤怠v8.0と共通データ化する前提。</p></div>`;
+ const rows=db.attendanceSummary.map(x=>`<tr><td>${empName(x.employeeId)}</td><td>${x.holidaysTaken}/${x.annualHolidays}</td><td>${x.paidLeaveTaken}</td><td>${x.annualWork}h</td><td>${x.overtime}h</td><td>${x.agreementPct}%</td><td><button class=ghost data-as="${x.employeeId}">編集</button></td></tr>`).join('');
+ const daily=db.attendance.filter(a=>a.date===currentDay).map(a=>`<tr><td>${empName(a.employeeId)}</td><td>${a.date}</td><td>${a.type}</td><td>${a.work}h</td><td>${a.overtime}h</td><td>${a.paidLeave||0}</td><td><button class=ghost data-ae="${a.employeeId}">編集</button> <button class=ghost data-ad="${a.employeeId}">削除</button></td></tr>`).join('');
+ const empOpts=activeEmployees().map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+ $('attendance').innerHTML=`<div class="banner info">勤怠管理 v8.0 連携イメージ。現段階ではこの画面から実際に編集・保存できます。</div>
+ <div class=grid2>
+  <div class=panel><h3>勤怠サマリー</h3><div class=tablewrap><table><tr><th>社員</th><th>休日取得</th><th>有休</th><th>年間就労</th><th>時間外</th><th>36協定</th><th></th></tr>${rows}</table></div></div>
+  <div class=panel><h3 id=asTitle>勤怠サマリー編集</h3><div class=form>
+   <div><label>社員</label><select id=asEmp>${empOpts}</select></div>
+   <div><label>年間休日</label><input id=asAnnual type=number value=110></div>
+   <div><label>休日取得</label><input id=asTaken type=number value=0></div>
+   <div><label>有休取得</label><input id=asPaid type=number value=0></div>
+   <div><label>年間就労h</label><input id=asWork type=number value=0 step=.1></div>
+   <div><label>時間外h</label><input id=asOT type=number value=0 step=.1></div>
+   <div><label>36協定進捗%</label><input id=asPct type=number value=0 step=.1></div>
+  </div><p><button id=asSave class=primary>保存</button></p></div>
+ </div>
+ <div class=grid2>
+  <div class=panel><div class=daynav><button id=aPrev class=ghost>←前日</button><div class=datebox>${dateLabel(currentDay)} 勤怠</div><button id=aNext class=ghost>翌日→</button></div><div class=tablewrap><table><tr><th>社員</th><th>日付</th><th>勤務区分</th><th>就労</th><th>時間外</th><th>有休</th><th></th></tr>${daily}</table></div></div>
+  <div class=panel><h3 id=aTitle>当日勤怠追加/編集</h3><input type=hidden id=aOrig><div class=form>
+   <div><label>社員</label><select id=aEmp>${empOpts}</select></div>
+   <div><label>勤務区分</label><select id=aType><option>出勤</option><option>公休</option><option>有休</option><option>午前半休</option><option>午後半休</option><option>代休</option><option>特休</option><option>休日出勤</option></select></div>
+   <div><label>就労h</label><input id=aWork type=number value=8 step=.1></div>
+   <div><label>時間外h</label><input id=aOT type=number value=0 step=.1></div>
+   <div><label>有休日数</label><input id=aPaid type=number value=0 step=.5></div>
+  </div><p><button id=aSave class=primary>保存</button> <button id=aCancel class=ghost style="display:none">取消</button></p></div>
+ </div>`;
+ $('aPrev').onclick=()=>{currentDay=addDays(currentDay,-1);renderAttendance()};
+ $('aNext').onclick=()=>{currentDay=addDays(currentDay,1);renderAttendance()};
+ $('aSave').onclick=()=>{
+   const rec={employeeId:$('aEmp').value,date:currentDay,type:$('aType').value,work:+$('aWork').value||0,overtime:+$('aOT').value||0,paidLeave:+$('aPaid').value||0};
+   const old=$('aOrig').value;
+   if(old){const i=db.attendance.findIndex(x=>x.employeeId===old&&x.date===currentDay);if(i>=0)db.attendance[i]=rec}
+   else{const i=db.attendance.findIndex(x=>x.employeeId===rec.employeeId&&x.date===currentDay);if(i>=0)db.attendance[i]=rec;else db.attendance.push(rec)}
+   save();renderAll();showView('attendance')
+ };
+ $('aCancel').onclick=()=>renderAttendance();
+ document.querySelectorAll('[data-ae]').forEach(b=>b.onclick=()=>{
+   const r=db.attendance.find(x=>x.employeeId===b.dataset.ae&&x.date===currentDay);if(!r)return;
+   $('aOrig').value=r.employeeId;$('aEmp').value=r.employeeId;$('aType').value=r.type;$('aWork').value=r.work;$('aOT').value=r.overtime;$('aPaid').value=r.paidLeave||0;
+   $('aTitle').textContent='当日勤怠編集';$('aCancel').style.display='inline-block';
+ });
+ document.querySelectorAll('[data-ad]').forEach(b=>b.onclick=()=>{db.attendance=db.attendance.filter(x=>!(x.employeeId===b.dataset.ad&&x.date===currentDay));save();renderAll();showView('attendance')});
+ $('asSave').onclick=()=>{
+   const id=$('asEmp').value;let r=db.attendanceSummary.find(x=>x.employeeId===id);
+   const n={employeeId:id,annualHolidays:+$('asAnnual').value||0,holidaysTaken:+$('asTaken').value||0,paidLeaveTaken:+$('asPaid').value||0,annualWork:+$('asWork').value||0,overtime:+$('asOT').value||0,agreementPct:+$('asPct').value||0};
+   if(r)Object.assign(r,n);else db.attendanceSummary.push(n);save();renderAll();showView('attendance')
+ };
+ document.querySelectorAll('[data-as]').forEach(b=>b.onclick=()=>{
+   const r=db.attendanceSummary.find(x=>x.employeeId===b.dataset.as);if(!r)return;
+   $('asEmp').value=r.employeeId;$('asAnnual').value=r.annualHolidays;$('asTaken').value=r.holidaysTaken;$('asPaid').value=r.paidLeaveTaken;$('asWork').value=r.annualWork;$('asOT').value=r.overtime;$('asPct').value=r.agreementPct;
+   $('asTitle').textContent=`${empName(r.employeeId)} の勤怠サマリー編集`;
+ });
 }
 
 function renderMasters(){
@@ -207,13 +255,48 @@ function renderMasters(){
 }
 
 function renderHolidays(){
- $('holidays').innerHTML=`<div class=grid2><div class=panel><h3>会社カレンダー</h3><div class=tablewrap><table><tr><th>日付</th><th>区分</th><th>名称</th><th></th></tr>${db.holidays.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>`<tr><td>${h.date}</td><td><span class="badge ${h.type==='statutory'?'bu':'bv'}">${h.type==='statutory'?'法定休日':'所定休日'}</span></td><td>${h.name}</td><td><button class=ghost data-hd="${h.id}">削除</button></td></tr>`).join('')}</table></div></div><div class=panel><h3>休日追加</h3><div class=form><div><label>日付</label><input id=hDate type=date value="${currentDay}"></div><div><label>区分</label><select id=hType><option value=statutory>法定休日</option><option value=company>所定休日</option></select></div><div><label>名称</label><input id=hName value="法定休日"></div></div><p><button id=hSave class=primary>＋追加</button></p><p class=small>勤怠v8.0と連携する際は、この会社カレンダーを共通データ化。</p></div></div>`;
- $('hSave').onclick=()=>{db.holidays.push({id:'H'+Date.now(),date:$('hDate').value,type:$('hType').value,name:$('hName').value.trim()||($('hType').value==='statutory'?'法定休日':'所定休日')});save();renderAll();showView('holidays')};
+ $('holidays').innerHTML=`<div class=grid2><div class=panel><h3>会社カレンダー</h3><div class=tablewrap><table><tr><th>日付</th><th>区分</th><th>名称</th><th></th></tr>${db.holidays.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>`<tr><td>${h.date}</td><td><span class="badge ${h.type==='statutory'?'bu':'bv'}">${h.type==='statutory'?'法定休日':'所定休日'}</span></td><td>${h.name}</td><td><button class=ghost data-he="${h.id}">編集</button> <button class=ghost data-hd="${h.id}">削除</button></td></tr>`).join('')}</table></div></div><div class=panel><h3 id=hTitle>休日追加</h3><input type=hidden id=hOrig><div class=form><div><label>日付</label><input id=hDate type=date value="${currentDay}"></div><div><label>区分</label><select id=hType><option value=statutory>法定休日</option><option value=company>所定休日</option></select></div><div><label>名称</label><input id=hName value="法定休日"></div></div><p><button id=hSave class=primary>＋追加</button> <button id=hCancel class=ghost style="display:none">取消</button></p><p class=small>勤怠v8.0と連携する際は、この会社カレンダーを共通データ化。</p></div></div>`;
+ $('hSave').onclick=()=>{
+   const x={id:$('hOrig').value||('H'+Date.now()),date:$('hDate').value,type:$('hType').value,name:$('hName').value.trim()||($('hType').value==='statutory'?'法定休日':'所定休日')};
+   if(!x.date)return alert('日付を入力してください');
+   if($('hOrig').value){
+     const i=db.holidays.findIndex(h=>h.id===$('hOrig').value); if(i>=0)db.holidays[i]=x;
+   }else db.holidays.push(x);
+   save();renderAll();showView('holidays')
+ };
  $('hType').onchange=()=>{$('hName').value=$('hType').value==='statutory'?'法定休日':'所定休日'};
+ $('hCancel').onclick=()=>renderHolidays();
+ document.querySelectorAll('[data-he]').forEach(b=>b.onclick=()=>{
+   const h=db.holidays.find(x=>x.id===b.dataset.he); if(!h)return;
+   $('hOrig').value=h.id;$('hDate').value=h.date;$('hType').value=h.type;$('hName').value=h.name;
+   $('hTitle').textContent='休日編集';$('hSave').textContent='変更を保存';$('hCancel').style.display='inline-block';
+ });
  document.querySelectorAll('[data-hd]').forEach(b=>b.onclick=()=>{db.holidays=db.holidays.filter(h=>h.id!==b.dataset.hd);save();renderAll();showView('holidays')});
 }
 
-function renderAll(){renderSummary();renderDashboard();renderProjects();renderYear();renderQuarter();renderMonth();renderDay();renderAttendance();renderMasters();renderHolidays()}
+
+function renderBackup(){
+ $('backup').innerHTML=`<div class=grid2>
+ <div class=panel><h3>バックアップ</h3><div class=goodbox>現在の案件・予定・勤怠・マスタ・休日を1つのJSONファイルとして保存できます。</div>
+ <p><button id=exportBtn class=primary>バックアップを書き出す</button></p>
+ <p class=small>端末変更や大きな編集前に保存推奨。</p></div>
+ <div class=panel><h3>復元</h3><div class=warnbox>復元すると現在のブラウザ内データを上書きします。</div>
+ <input id=importFile class=fileinput type=file accept=".json,application/json">
+ <p><button id=importBtn class=primary>選択したバックアップを復元</button></p></div></div>`;
+ $('exportBtn').onclick=()=>{
+   const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+   const url=URL.createObjectURL(blob),a=document.createElement('a');
+   a.href=url;a.download='company_portal_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url);
+ };
+ $('importBtn').onclick=()=>{
+   const f=$('importFile').files[0];if(!f)return alert('JSONファイルを選択してください');
+   const reader=new FileReader();
+   reader.onload=()=>{try{const x=JSON.parse(reader.result);if(!x.employees||!x.projects||!x.tasks)return alert('バックアップ形式が正しくありません');if(!confirm('現在のデータを上書きして復元しますか？'))return;db=x;save();renderAll();showView('dashboard');alert('復元しました')}catch(e){alert('JSONの読み込みに失敗しました')}};
+   reader.readAsText(f);
+ };
+}
+
+function renderAll(){renderSummary();renderDashboard();renderProjects();renderYear();renderQuarter();renderMonth();renderDay();renderAttendance();renderMasters();renderHolidays();renderBackup()}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showView(b.dataset.view));
 $('resetBtn').onclick=()=>{localStorage.removeItem(KEY);db=structuredClone(seed);currentDay='2026-09-09';currentMonth='2026-09';save();renderAll();showView('dashboard')};
 renderAll();

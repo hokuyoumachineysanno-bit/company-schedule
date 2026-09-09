@@ -50,3 +50,8 @@ textarea{min-height:68px}
  .gname,.gvehicle{padding:8px;font-size:12px}
  button{min-height:40px}
 }
+
+.editing{outline:2px solid #2563eb;background:#eff6ff}
+.warnbox{background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:10px 12px;color:#9a3412;margin-bottom:10px}
+.goodbox{background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 12px;color:#166534;margin-bottom:10px}
+.fileinput{padding:8px;border:1px dashed var(--line);border-radius:8px;background:#fff}
