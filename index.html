@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>社内業務ポータル v0.7</title>
-<link rel="stylesheet" href="style.css?v=070">
+<title>社内業務ポータル v0.9</title>
+<link rel="stylesheet" href="style.css?v=090">
 </head>
 <body>
 <header>
   <div>
     <div class="brand">社内業務ポータル</div>
-    <div class="sub">案件・予定・勤怠・社員・車両・顧客を共通キーで管理　v0.7</div>
+    <div class="sub">案件・予定・勤怠・社員・車両・顧客を共通キーで管理　v0.9</div>
   </div>
   <button id="resetBtn" class="ghost">初期データへ戻す</button>
 </header>
@@ -42,7 +42,8 @@
   <section id="holidays" class="view hidden"></section>
   <section id="backup" class="view hidden"></section>
 </main>
+<div id="modal" class="modal hidden"><div class="modal-backdrop" data-modal-close></div><div class="modal-card"><div class="modal-head"><h3 id="modalTitle">編集</h3><button class="modal-x" data-modal-close>×</button></div><div id="modalBody" class="modal-body"></div><div class="modal-foot"><button id="modalCancel" class="ghost">キャンセル</button><button id="modalSave" class="primary">保存</button></div></div></div>
 
-<script src="app.js?v=070"></script>
+<script src="app.js?v=090"></script>
 </body>
 </html>
