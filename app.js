@@ -1,35 +1,54 @@
+const $=id=>document.getElementById(id);
+const KEY='companyPortalV06';
+const seed={employees:[{id:'EMP-001',name:'社長',role:'社長',active:true,attendance:true,start:'08:00',end:'17:00',order:1},{id:'EMP-002',name:'専務',role:'専務',active:true,attendance:true,start:'08:00',end:'17:00',order:2},{id:'EMP-003',name:'山田',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:3},{id:'EMP-004',name:'佐藤',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:4},{id:'EMP-005',name:'鈴木',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:5}],vehicles:[{id:'CAR-001',name:'ハイエース①',type:'ハイエース',number:'富山100 あ 1234',active:true,note:''},{id:'CAR-002',name:'ハイエース②',type:'ハイエース',number:'富山100 あ 5678',active:true,note:''},{id:'CAR-003',name:'プロボックス',type:'プロボックス',number:'富山500 い 1111',active:true,note:''}],customers:[{id:'CUS-001',name:'○○食品株式会社',short:'○○食品',address:'富山県',contact:'田中様',phone:'',active:true},{id:'CUS-002',name:'△△食品株式会社',short:'△△食品',address:'石川県',contact:'佐々木様',phone:'',active:true}],projects:[{id:'PJ-2026-0042',customerId:'CUS-001',name:'コンベア改造',status:'受注',start:'2026-09-09',deadline:'2026-11-20',hours:120,people:2,ownerId:'EMP-003',note:'現調→設計→製作→現地工事'},{id:'PJ-2026-0048',customerId:'CUS-002',name:'洗浄機更新',status:'見積中',start:'2026-09-15',deadline:'2026-12-10',hours:240,people:3,ownerId:'EMP-002',note:'メーカー実機検証あり'}],tasks:[{id:'A',date:'2026-09-09',name:'現調',type:'現調',projectId:'PJ-2026-0042',employeeId:'EMP-001',vehicleId:'',start:'08:00',end:'10:00',status:'confirmed'},{id:'B',date:'2026-09-09',name:'社内打合せ',type:'その他',projectId:'',employeeId:'EMP-001',vehicleId:'',start:'11:00',end:'12:00',status:'pending'},{id:'C',date:'2026-09-09',name:'商談',type:'商談',projectId:'PJ-2026-0048',employeeId:'EMP-001',vehicleId:'',start:'13:00',end:'15:00',status:'confirmed'},{id:'D',date:'2026-09-09',name:'客先修理',type:'客先修理',projectId:'',employeeId:'EMP-002',vehicleId:'CAR-001',start:'08:30',end:'12:00',status:'confirmed'},{id:'E',date:'2026-09-09',name:'見積作成',type:'見積',projectId:'PJ-2026-0048',employeeId:'EMP-002',vehicleId:'',start:'13:00',end:'16:00',status:'provisional'},{id:'F',date:'2026-09-09',name:'架台組立',type:'社内製作',projectId:'PJ-2026-0042',employeeId:'EMP-003',vehicleId:'',start:'09:00',end:'12:00',status:'confirmed'}],holidays:[{id:'H1',date:'2026-09-13',type:'statutory',name:'法定休日'},{id:'H2',date:'2026-09-19',type:'company',name:'所定休日'},{id:'H3',date:'2026-09-20',type:'statutory',name:'法定休日'}],attendance:[{employeeId:'EMP-001',date:'2026-09-09',type:'出勤',work:8.5,overtime:.5,paidLeave:0},{employeeId:'EMP-002',date:'2026-09-09',type:'出勤',work:9,overtime:1,paidLeave:0},{employeeId:'EMP-003',date:'2026-09-09',type:'出勤',work:8,overtime:0,paidLeave:0},{employeeId:'EMP-004',date:'2026-09-09',type:'有休',work:0,overtime:0,paidLeave:1},{employeeId:'EMP-005',date:'2026-09-09',type:'出勤',work:8,overtime:0,paidLeave:0}],attendanceSummary:[{employeeId:'EMP-001',annualHolidays:110,holidaysTaken:71,paidLeaveTaken:3,annualWork:1450,overtime:185,agreementPct:51},{employeeId:'EMP-002',annualHolidays:110,holidaysTaken:69,paidLeaveTaken:2,annualWork:1510,overtime:218,agreementPct:61},{employeeId:'EMP-003',annualHolidays:110,holidaysTaken:75,paidLeaveTaken:4,annualWork:1420,overtime:146,agreementPct:41},{employeeId:'EMP-004',annualHolidays:110,holidaysTaken:78,paidLeaveTaken:5,annualWork:1390,overtime:98,agreementPct:27},{employeeId:'EMP-005',annualHolidays:110,holidaysTaken:80,paidLeaveTaken:3,annualWork:1370,overtime:86,agreementPct:24}]};
+let db=JSON.parse(localStorage.getItem(KEY)||'null')||JSON.parse(JSON.stringify(seed));
 
+localStorage.setItem(KEY,JSON.stringify(db));db.tasks.forEach(t=>{if(!Array.isArray(t.passengerIds))t.passengerIds=[];if(!t.category)t.category=(['設計','見積','社内製作','段取り','整備'].includes(t.type)?'社内案件':'客先案件');if(typeof t.urgent!=='boolean')t.urgent=false;if(!Array.isArray(t.history))t.history=[];});db.projects.forEach(p=>{const m={'引合':'情報','見積中':'商談中','進行中':'施工中','保留':'商談中','完了':'検収済'};p.status=m[p.status]||p.status;if(!Array.isArray(p.history))p.history=[];});
 function applyTimeSnapshotToPortal(){
   let cache=null;
-  try{cache=JSON.parse(localStorage.getItem('hokuyou.portal.attendance.cache.v1')||'null')}catch{}
+  try{
+    cache=JSON.parse(localStorage.getItem('hokuyou.portal.attendance.cache.v1')||'null');
+  }catch(e){
+    console.warn('TIMEキャッシュ読込失敗',e);
+  }
   if(!cache)return false;
+
   db.attendance=(cache.attendance||[]).map(x=>({...x}));
   db.companyCalendar=(cache.calendar||[]).map(x=>({...x}));
   db.timeSnapshotUpdatedAt=cache.exportedAt||null;
-  // ポータル自身にも格納する。ただし編集元にはしない。
+
+  // TIME暦をポータル休日表示へ変換
+  if(Array.isArray(cache.calendar) && cache.calendar.length){
+    db.holidays=cache.calendar
+      .filter(x=>/法定休日|所定休日|会社休業日/.test(x.type||''))
+      .map((x,i)=>({
+        id:x.id||`TIME-CAL-${x.date}-${i}`,
+        date:x.date,
+        type:(x.type||'').includes('法定')?'statutory':'company',
+        name:x.name||x.type
+      }));
+  }
+
   localStorage.setItem(KEY,JSON.stringify(db));
   return true;
 }
-applyTimeSnapshotToPortal();
 
 window.addEventListener('hokuyou-time-snapshot-imported',()=>{
   if(applyTimeSnapshotToPortal()){
     try{renderAll()}catch(e){console.warn('TIME反映後の再描画失敗',e)}
   }
 });
+
 window.addEventListener('pageshow',()=>{
   if(applyTimeSnapshotToPortal()){
-    try{renderAll()}catch(e){}
+    try{renderAll()}catch(e){console.warn('pageshow再描画失敗',e)}
   }
 });
 
-const $=id=>document.getElementById(id);
-const KEY='companyPortalV06';
-const seed={employees:[{id:'EMP-001',name:'社長',role:'社長',active:true,attendance:true,start:'08:00',end:'17:00',order:1},{id:'EMP-002',name:'専務',role:'専務',active:true,attendance:true,start:'08:00',end:'17:00',order:2},{id:'EMP-003',name:'山田',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:3},{id:'EMP-004',name:'佐藤',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:4},{id:'EMP-005',name:'鈴木',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:5}],vehicles:[{id:'CAR-001',name:'ハイエース①',type:'ハイエース',number:'富山100 あ 1234',active:true,note:''},{id:'CAR-002',name:'ハイエース②',type:'ハイエース',number:'富山100 あ 5678',active:true,note:''},{id:'CAR-003',name:'プロボックス',type:'プロボックス',number:'富山500 い 1111',active:true,note:''}],customers:[{id:'CUS-001',name:'○○食品株式会社',short:'○○食品',address:'富山県',contact:'田中様',phone:'',active:true},{id:'CUS-002',name:'△△食品株式会社',short:'△△食品',address:'石川県',contact:'佐々木様',phone:'',active:true}],projects:[{id:'PJ-2026-0042',customerId:'CUS-001',name:'コンベア改造',status:'受注',start:'2026-09-09',deadline:'2026-11-20',hours:120,people:2,ownerId:'EMP-003',note:'現調→設計→製作→現地工事'},{id:'PJ-2026-0048',customerId:'CUS-002',name:'洗浄機更新',status:'見積中',start:'2026-09-15',deadline:'2026-12-10',hours:240,people:3,ownerId:'EMP-002',note:'メーカー実機検証あり'}],tasks:[{id:'A',date:'2026-09-09',name:'現調',type:'現調',projectId:'PJ-2026-0042',employeeId:'EMP-001',vehicleId:'',start:'08:00',end:'10:00',status:'confirmed'},{id:'B',date:'2026-09-09',name:'社内打合せ',type:'その他',projectId:'',employeeId:'EMP-001',vehicleId:'',start:'11:00',end:'12:00',status:'pending'},{id:'C',date:'2026-09-09',name:'商談',type:'商談',projectId:'PJ-2026-0048',employeeId:'EMP-001',vehicleId:'',start:'13:00',end:'15:00',status:'confirmed'},{id:'D',date:'2026-09-09',name:'客先修理',type:'客先修理',projectId:'',employeeId:'EMP-002',vehicleId:'CAR-001',start:'08:30',end:'12:00',status:'confirmed'},{id:'E',date:'2026-09-09',name:'見積作成',type:'見積',projectId:'PJ-2026-0048',employeeId:'EMP-002',vehicleId:'',start:'13:00',end:'16:00',status:'provisional'},{id:'F',date:'2026-09-09',name:'架台組立',type:'社内製作',projectId:'PJ-2026-0042',employeeId:'EMP-003',vehicleId:'',start:'09:00',end:'12:00',status:'confirmed'}],holidays:[{id:'H1',date:'2026-09-13',type:'statutory',name:'法定休日'},{id:'H2',date:'2026-09-19',type:'company',name:'所定休日'},{id:'H3',date:'2026-09-20',type:'statutory',name:'法定休日'}],attendance:[{employeeId:'EMP-001',date:'2026-09-09',type:'出勤',work:8.5,overtime:.5,paidLeave:0},{employeeId:'EMP-002',date:'2026-09-09',type:'出勤',work:9,overtime:1,paidLeave:0},{employeeId:'EMP-003',date:'2026-09-09',type:'出勤',work:8,overtime:0,paidLeave:0},{employeeId:'EMP-004',date:'2026-09-09',type:'有休',work:0,overtime:0,paidLeave:1},{employeeId:'EMP-005',date:'2026-09-09',type:'出勤',work:8,overtime:0,paidLeave:0}],attendanceSummary:[{employeeId:'EMP-001',annualHolidays:110,holidaysTaken:71,paidLeaveTaken:3,annualWork:1450,overtime:185,agreementPct:51},{employeeId:'EMP-002',annualHolidays:110,holidaysTaken:69,paidLeaveTaken:2,annualWork:1510,overtime:218,agreementPct:61},{employeeId:'EMP-003',annualHolidays:110,holidaysTaken:75,paidLeaveTaken:4,annualWork:1420,overtime:146,agreementPct:41},{employeeId:'EMP-004',annualHolidays:110,holidaysTaken:78,paidLeaveTaken:5,annualWork:1390,overtime:98,agreementPct:27},{employeeId:'EMP-005',annualHolidays:110,holidaysTaken:80,paidLeaveTaken:3,annualWork:1370,overtime:86,agreementPct:24}]};
-let db=JSON.parse(localStorage.getItem(KEY)||'null')||JSON.parse(JSON.stringify(seed));
+applyTimeSnapshotToPortal();
 
-localStorage.setItem(KEY,JSON.stringify(db));db.tasks.forEach(t=>{if(!Array.isArray(t.passengerIds))t.passengerIds=[];if(!t.category)t.category=(['設計','見積','社内製作','段取り','整備'].includes(t.type)?'社内案件':'客先案件');if(typeof t.urgent!=='boolean')t.urgent=false;if(!Array.isArray(t.history))t.history=[];});db.projects.forEach(p=>{const m={'引合':'情報','見積中':'商談中','進行中':'施工中','保留':'商談中','完了':'検収済'};p.status=m[p.status]||p.status;if(!Array.isArray(p.history))p.history=[];});let currentDay='2026-09-09',currentMonth='2026-09',masterType='employees',dayRange='all';
-const save=()=>{localStorage.setItem(KEY,JSON.stringify(db));if(window.HokuyouPortalV81Adapter)HokuyouPortalV81Adapter.pushBusinessData(db)};
+let currentDay='2026-09-09',currentMonth='2026-09',masterType='employees',dayRange='all';
+const save=()=>{localStorage.setItem(KEY,JSON.stringify(db));};
 const emp=id=>db.employees.find(x=>x.id===id),veh=id=>db.vehicles.find(x=>x.id===id),cust=id=>db.customers.find(x=>x.id===id),proj=id=>db.projects.find(x=>x.id===id);
 const empName=id=>emp(id)?.name||'未割当',vehName=id=>veh(id)?.name||'-',custName=id=>cust(id)?.name||'',activeEmployees=()=>db.employees.filter(x=>x.active).sort((a,b)=>a.order-b.order);
 const projectLabel=id=>{const p=proj(id);return p?`${p.id} ${cust(p.customerId)?.short||custName(p.customerId)} ${p.name}`:'社内'};
