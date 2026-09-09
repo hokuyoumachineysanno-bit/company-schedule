@@ -55,6 +55,16 @@ const projectLabel=id=>{const p=proj(id);return p?`${p.id} ${cust(p.customerId)?
 const statusText=s=>({confirmed:'確定',pending:'確認待ち',provisional:'仮予定',unassigned:'未割当'})[s],statusBadge=s=>s==='confirmed'?'bc':s==='pending'?'bp':s==='provisional'?'bv':'bu';
 const taskClass=t=>t.status!=='confirmed'?t.status:(t.category==='社内案件'?'internal':'confirmed');
 const timeNum=t=>{const[a,b]=t.split(':').map(Number);return a+b/60};
+const timeOverlap=(aStart,aEnd,bStart,bEnd)=>timeNum(aStart)<timeNum(bEnd)&&timeNum(bStart)<timeNum(aEnd);
+function findMainAssigneeConflict(candidate,editingId=''){
+  return (db.tasks||[]).find(t=>
+    t.id!==editingId &&
+    t.date===candidate.date &&
+    t.employeeId===candidate.employeeId &&
+    timeOverlap(candidate.start,candidate.end,t.start,t.end)
+  );
+}
+
 const taskHours=t=>Math.max(0,timeNum(t.end)-timeNum(t.start));
 const participants=t=>t.type==='移動'?[t.employeeId,...(t.passengerIds||[])].filter((x,i,a)=>x&&a.indexOf(x)===i):[t.employeeId];
 const travelStats=items=>{const travel=items.filter(t=>t.type==='移動'),work=items.filter(t=>t.type!=='移動');const travelPerson=travel.reduce((s,t)=>s+taskHours(t)*participants(t).length,0),vehicleHours=travel.reduce((s,t)=>s+taskHours(t),0),workHours=work.reduce((s,t)=>s+taskHours(t),0),total=travelPerson+workHours;return{travelPerson,vehicleHours,workHours,total,ratio:total?travelPerson/total*100:0}};
@@ -66,7 +76,14 @@ const dateLabel=date=>{const p=parseYMD(date),dt=new Date(Date.UTC(p.y,p.m-1,p.d
 const syncMonthToDay=()=>{currentMonth=currentDay.slice(0,7)};
 const holidayFor=date=>db.holidays.filter(h=>h.date===date);
 const attendanceFor=(employeeId,date)=>db.attendance.find(a=>a.employeeId===employeeId&&a.date===date);
-const nextTaskId=()=>{for(let c=65;c<=90;c++){let x=String.fromCharCode(c);if(!db.tasks.some(t=>t.id===x))return x}return'T'+(db.tasks.length+1)};
+const nextTaskId=()=>{
+  let max=0;
+  (db.tasks||[]).forEach(t=>{
+    const m=String(t.id||'').match(/^T(\d+)$/i);
+    if(m)max=Math.max(max,+m[1]);
+  });
+  return 'T'+String(max+1).padStart(3,'0');
+};
 const timeOptions=s=>{let o='';for(let h=0;h<24;h++)for(let m of [0,30]){const t=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');o+=`<option ${t===s?'selected':''}>${t}</option>`}return o};
 const timeBands=(start,end)=>{const span=end-start,defs=[[0,5,'deep'],[5,8.5,'early'],[8.5,17.5,'normal'],[17.5,22,'night'],[22,24,'deep']];return defs.map(([a,b,c])=>{const x=Math.max(a,start),y=Math.min(b,end);if(y<=x)return'';return`<div class="timeband ${c}" style="left:${(x-start)/span*100}%;width:${(y-x)/span*100}%"></div>`}).join('')};
 function showView(name){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.view===name));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hidden',x.id!==name))}
@@ -85,7 +102,7 @@ function taskModal(t,presetProject=''){
    id:nextTaskId(),date:currentDay,name:'',category:'客先案件',
    projectId:presetProject,employeeId:activeEmployees()[0]?.id||'',
    vehicleId:'',start:'08:30',end:'17:30',status:'confirmed',
-   urgent:false,passengerIds:[],history:[]
+   urgent:false,passengerIds:[],history:[],clientSite:''
  };
  const cats=['客先案件','社内案件','その他'];
 
@@ -97,7 +114,7 @@ function taskModal(t,presetProject=''){
 
   <div class=form>
    <div><label>日付</label><input id=mtDate type=date value="${t0.date}"></div>
-   <div><label>ID</label><input id=mtId value="${t0.id}" ${edit?'readonly':''}></div>
+   <div><label>ID</label><input id=mtId value="${t0.id}" readonly></div>
 
    <div><label>案件</label>
     <select id=mtProject>
@@ -107,6 +124,11 @@ function taskModal(t,presetProject=''){
    </div>
 
    <div><label>内容</label><input id=mtName value="${t0.name||''}" placeholder="例：客先修理、据付工事、見積作成"></div>
+
+   <div id=clientSiteWrap style="grid-column:1/-1;${(t0.category||'客先案件')==='客先案件'?'':'display:none'}">
+    <label>客先名 / 所在地</label>
+    <input id=mtClientSite value="${t0.clientSite||''}" placeholder="例：○○食品 富山工場 / 富山市○○">
+   </div>
 
    <div><label>開始</label><input id=mtStart type=time step=900 value="${t0.start}"></div>
    <div><label>終了</label><input id=mtEnd type=time step=900 value="${t0.end}"></div>
@@ -151,14 +173,16 @@ function taskModal(t,presetProject=''){
     ${(t0.history||[]).slice().reverse().map(h=>`<div class=history-item>${h.at||''}　${h.text}</div>`).join('')||'<div class=history-item>履歴なし</div>'}
   </div>`:''}
  `,()=>{
+   const category=$('mtCategory').value;
    const n={
      ...t0,
-     id:$('mtId').value,
+     id:t0.id,
      date:$('mtDate').value,
      name:$('mtName').value.trim()||'未記入',
-     category:$('mtCategory').value,
-     type:$('mtCategory').value,
+     category,
+     type:category,
      projectId:$('mtProject').value,
+     clientSite:category==='客先案件'?($('mtClientSite')?.value.trim()||''):'',
      employeeId:$('mtEmployee').value,
      vehicleId:$('mtVehicle').value,
      start:$('mtStart').value,
@@ -168,14 +192,28 @@ function taskModal(t,presetProject=''){
      passengerIds:[...$('modalBody').querySelectorAll('[data-helper]:checked')].map(x=>x.dataset.helper)
    };
 
-   if(timeNum(n.end)<=timeNum(n.start))return alert('終了時刻を確認してください');
+   if(timeNum(n.end)<=timeNum(n.start)){
+     alert('終了時刻を開始時刻より後にしてください。');
+     return;
+   }
+
+   const conflict=findMainAssigneeConflict(n,edit?t0.id:'');
+   if(conflict){
+     alert(
+       `主担当「${empName(n.employeeId)}」の時間が重複しています。\n\n`+
+       `重複タスク：${conflict.id} ${conflict.name}\n`+
+       `${conflict.start} ～ ${conflict.end}\n\n`+
+       `開始・終了時刻をずらしてから保存してください。`
+     );
+     return;
+   }
 
    if(edit){
      n.history=[...(t0.history||[]),{
        at:new Date().toLocaleString('ja-JP'),
        text:'タスク内容を編集'
      }];
-     const idx=db.tasks.findIndex(x=>x.id===t.id);
+     const idx=db.tasks.findIndex(x=>x.id===t0.id);
      if(idx>=0)db.tasks[idx]=n;
    }else{
      db.tasks.push(n);
@@ -191,6 +229,8 @@ function taskModal(t,presetProject=''){
  document.querySelectorAll('[data-kind]').forEach(b=>b.onclick=()=>{
    $('mtCategory').value=b.dataset.kind;
    document.querySelectorAll('[data-kind]').forEach(x=>x.classList.toggle('active',x===b));
+   const wrap=$('clientSiteWrap');
+   if(wrap)wrap.style.display=b.dataset.kind==='客先案件'?'block':'none';
  });
 
  if(edit){
@@ -204,10 +244,10 @@ function taskModal(t,presetProject=''){
    `;
    foot.prepend(row);
 
-   $('postponeBtn').onclick=()=>postponeTask(t);
+   $('postponeBtn').onclick=()=>postponeTask(t0);
 
    $('pendingBtn').onclick=()=>{
-     const x=db.tasks.find(a=>a.id===t.id);
+     const x=db.tasks.find(a=>a.id===t0.id);
      if(!x)return;
      x.status='pending';
      x.history=[...(x.history||[]),{
@@ -221,8 +261,8 @@ function taskModal(t,presetProject=''){
    };
 
    $('deleteTaskBtn').onclick=()=>{
-     if(!confirm(`タスク ${t.id}「${t.name}」を削除しますか？\n\n誤入力・重複登録など、本当に存在しなかったタスク向けです。`))return;
-     db.tasks=db.tasks.filter(a=>a.id!==t.id);
+     if(!confirm(`タスク ${t0.id}「${t0.name}」を削除しますか？`))return;
+     db.tasks=db.tasks.filter(a=>a.id!==t0.id);
      save();
      closeModal();
      renderAll();
@@ -235,7 +275,7 @@ function renderDay(){
  const ts=db.tasks.filter(t=>t.date===currentDay),hs=db.holidays.filter(h=>h.date===currentDay),rd=rangeDef(),span=rd.e-rd.s;let rows=`<div class="grow head"><div class=who>氏名 / 車両</div><div class=track>${timeBands(rd.s,rd.e)}${rd.h.map(h=>`<div class=hour>${h}</div>`).join('')}</div></div>`;
  activeEmployees().forEach(e=>{const a=db.attendance.find(x=>x.employeeId===e.id&&x.date===currentDay);let bars='';if(a&&a.type!=='出勤')bars+=`<div class="bar leave" style="left:0;width:100%">${a.type}</div>`;const my=ts.filter(t=>t.employeeId===e.id||(t.passengerIds||[]).includes(e.id));my.forEach(t=>{let st=Math.max(timeNum(t.start),rd.s),en=Math.min(timeNum(t.end),rd.e);if(en<=rd.s||st>=rd.e)return;const l=(st-rd.s)/span*100,w=(en-st)/span*100,isHelp=(t.passengerIds||[]).includes(e.id);bars+=`<div class="bar ${taskClass(t)} ${t.urgent?'urgent':''} task-click" data-bar="${t.id}" style="left:${l}%;width:${w}%">${t.urgent?'🔴 ':''}${isHelp?'↳補助 ':''}${t.id} ${t.name}</div>`});const cars=[...new Set(my.filter(t=>t.vehicleId).map(t=>vehName(t.vehicleId)))].join(', ');const att=attendanceFor(e.id,currentDay);const attText=att?(att.type==='出勤'?`勤怠 ${att.work||0}h${att.overtime?` / 残業 ${att.overtime}h`:''}`:`${att.type}`):'勤怠未入力';
  rows+=`<div class=grow><div class=who><div class=ename>${e.name}</div><div class=car>${cars||'車両 -'}</div><div class=small>${attText}</div></div><div class=track>${timeBands(rd.s,rd.e)}${bars}</div></div>`});
- const urg=ts.filter(t=>t.urgent);$('day').innerHTML=`<div class=panel><div class=daynav><button id=dPrev class=ghost>←前日</button><div class=datebox>${dateLabel(currentDay)}</div><button id=dNext class=ghost>翌日→</button></div>${hs.map(h=>`<div class="banner ${h.type==='statutory'?'stat':'company'}">${h.name}</div>`).join('')}${urg.length?`<div class=banner style="background:#fff1f2;color:#991b1b">🔴 緊急 ${urg.length}件：${urg.map(x=>`${x.id} ${x.name}`).join(' / ')}</div>`:''}<div class=timelegend><span class=l-deep>深夜 0–5 / 22–24</span><span class=l-early>早朝 5–8:30</span><span class=l-normal>基準 8:30–17:30</span><span class=l-night>夜間 17:30–22</span></div><div class=toolbar><div class=seg><button data-range=all class="${dayRange==='all'?'active':''}">終日 0–24</button><button data-range=am class="${dayRange==='am'?'active':''}">午前 0–12</button><button data-range=pm class="${dayRange==='pm'?'active':''}">午後 12–24</button></div><div class=actions><button id=openAttendance class=ghost>この日の勤怠</button><button id=addTask class=primary>＋タスク</button></div></div><div class="day-gantt" data-range="${dayRange}"><div class=gantt-inner>${rows}</div></div><p class=small>補助欄の社員にも同じ時間バーを自動反映。赤枠＝緊急。</p></div><div class=panel><h3>この日のタスク</h3><div class=tablewrap><table><tr><th>ID</th><th>時間</th><th>区分</th><th>内容</th><th>案件</th><th>担当</th><th>補助</th><th>状態</th><th></th></tr>${ts.map(t=>`<tr><td>${t.urgent?'<span class=urgent-badge>緊急</span><br>':''}${t.id}</td><td>${t.start}-${t.end}</td><td>${t.category||t.type}</td><td>${t.name}</td><td>${projectLabel(t.projectId)}</td><td>${empName(t.employeeId)}</td><td>${(t.passengerIds||[]).map(empName).join('、')||'-'}</td><td><span class="badge ${statusBadge(t.status)} ${t.status}">${t.status==='pending'?'ペンディング':statusText(t.status)}</span></td><td><button class=ghost data-te="${t.id}">編集</button> <button class=danger data-td="${t.id}">削除</button></td></tr>`).join('')}</table></div></div>`;$('dPrev').onclick=()=>{currentDay=addDays(currentDay,-1);syncMonthToDay();renderDay()};
+ const urg=ts.filter(t=>t.urgent);$('day').innerHTML=`<div class=panel><div class=daynav><button id=dPrev class=ghost>←前日</button><div class=datebox>${dateLabel(currentDay)}</div><button id=dNext class=ghost>翌日→</button></div>${hs.map(h=>`<div class="banner ${h.type==='statutory'?'stat':'company'}">${h.name}</div>`).join('')}${urg.length?`<div class=banner style="background:#fff1f2;color:#991b1b">🔴 緊急 ${urg.length}件：${urg.map(x=>`${x.id} ${x.name}`).join(' / ')}</div>`:''}<div class=timelegend><span class=l-deep>深夜 0–5 / 22–24</span><span class=l-early>早朝 5–8:30</span><span class=l-normal>基準 8:30–17:30</span><span class=l-night>夜間 17:30–22</span></div><div class=toolbar><div class=seg><button data-range=all class="${dayRange==='all'?'active':''}">終日 0–24</button><button data-range=am class="${dayRange==='am'?'active':''}">午前 0–12</button><button data-range=pm class="${dayRange==='pm'?'active':''}">午後 12–24</button></div><div class=actions><button id=openAttendance class=ghost>この日の勤怠</button><button id=addTask class=primary>＋タスク</button></div></div><div class="day-gantt" data-range="${dayRange}"><div class=gantt-inner>${rows}</div></div><p class=small>補助欄の社員にも同じ時間バーを自動反映。赤枠＝緊急。</p></div><div class=panel><h3>この日のタスク</h3><div class=tablewrap><table><tr><th>ID</th><th>時間</th><th>区分</th><th>内容</th><th>客先/所在地</th><th>案件</th><th>担当</th><th>補助</th><th>状態</th><th></th></tr>${ts.map(t=>`<tr><td>${t.urgent?'<span class=urgent-badge>緊急</span><br>':''}${t.id}</td><td>${t.start}-${t.end}</td><td>${t.category||t.type}</td><td>${t.name}</td><td>${t.category==='客先案件'?(t.clientSite||'-'):'-'}</td><td>${projectLabel(t.projectId)}</td><td>${empName(t.employeeId)}</td><td>${(t.passengerIds||[]).map(empName).join('、')||'-'}</td><td><span class="badge ${statusBadge(t.status)} ${t.status}">${t.status==='pending'?'ペンディング':statusText(t.status)}</span></td><td><button class=ghost data-te="${t.id}">編集</button> <button class=danger data-td="${t.id}">削除</button></td></tr>`).join('')}</table></div></div>`;$('dPrev').onclick=()=>{currentDay=addDays(currentDay,-1);syncMonthToDay();renderDay()};
  $('dNext').onclick=()=>{currentDay=addDays(currentDay,1);syncMonthToDay();renderDay()};
  $('openAttendance').onclick=()=>{renderAttendance();showView('attendance')};
  $('addTask').onclick=()=>taskModal(null);document.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{dayRange=b.dataset.range;renderDay()});document.querySelectorAll('[data-te],[data-bar]').forEach(b=>b.onclick=()=>taskModal(db.tasks.find(t=>t.id===(b.dataset.te||b.dataset.bar))));

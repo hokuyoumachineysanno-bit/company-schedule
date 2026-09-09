@@ -118,3 +118,5 @@ textarea{min-height:68px}
   .task-action-row{grid-template-columns:1fr 1fr 1fr}
   .modalfoot{padding-bottom:max(12px,env(safe-area-inset-bottom))}
 }
+
+#mtId[readonly]{background:#f1f5f9;color:#64748b;font-weight:700}
