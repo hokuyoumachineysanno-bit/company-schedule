@@ -85,3 +85,6 @@ textarea{min-height:68px}
 .passenger-grid label{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:8px;padding:8px;color:var(--text);font-size:13px}.passenger-grid input{width:auto}
 .project-load{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.project-load span{font-size:11px;background:#f1f5f9;padding:4px 7px;border-radius:999px;color:#475569}
 @media(max-width:950px){.travel-kpis{grid-template-columns:repeat(2,1fr)}.travel-kpi strong{font-size:16px}.passenger-grid{grid-template-columns:1fr}.day-gantt[data-range="all"] .bar.travel{font-size:0}}
+
+/* v0.9.1 補助表示 */
+.bar.travel{cursor:pointer}
