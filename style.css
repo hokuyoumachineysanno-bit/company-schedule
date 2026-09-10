@@ -219,3 +219,66 @@ textarea{min-height:68px}
   font-size:9px;
   font-weight:800;
 }
+
+/* ===== v2.0.6 month holiday visibility ===== */
+.daycell.holiday-statutory-cell{
+  background:#ffdede !important;
+  border-color:#fca5a5 !important;
+  box-shadow:inset 0 6px 0 #dc2626;
+}
+.daycell.holiday-company-cell{
+  background:#eadfff !important;
+  border-color:#c4b5fd !important;
+  box-shadow:inset 0 6px 0 #7c3aed;
+}
+.daycell .holiday-mark{
+  display:inline-block;
+  font-size:10px;
+  font-weight:800;
+  padding:3px 7px;
+  border-radius:999px;
+  margin:2px 0 5px;
+}
+.daycell .statutory-mark{
+  background:#fee2e2 !important;
+  color:#991b1b !important;
+  border:1px solid #f87171 !important;
+}
+.daycell .company-mark{
+  background:#ede9fe !important;
+  color:#5b21b6 !important;
+  border:1px solid #a78bfa !important;
+}
+
+/* ===== v2.0.6 dynamic staffing / task weight ===== */
+.day-gantt .grow.staff-row{min-height:50px}
+.day-gantt .bar.team-stack-top,
+.day-gantt .bar.team-stack-middle,
+.day-gantt .bar.team-stack-bottom{
+  top:0 !important;
+  height:100% !important;
+  border-radius:0 !important;
+  display:flex;
+  align-items:center;
+  border-top-width:1px;
+  border-bottom-width:1px;
+}
+.day-gantt .bar.team-stack-top{
+  border-radius:8px 8px 0 0 !important;
+}
+.day-gantt .bar.team-stack-bottom{
+  border-radius:0 0 8px 8px !important;
+}
+.day-gantt .bar.team-stack-middle{
+  border-top-color:transparent;
+  border-bottom-color:transparent;
+}
+.day-gantt .grow.staff-row:has(.team-stack-top),
+.day-gantt .grow.staff-row:has(.team-stack-middle),
+.day-gantt .grow.staff-row:has(.team-stack-bottom){
+  border-bottom-color:transparent;
+}
+.day-gantt .who .sort-hint{
+  font-size:9px;
+  color:#94a3b8;
+}

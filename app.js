@@ -142,7 +142,7 @@ function projectModal(p){const isEdit=!!p,p0=p||{id:'PJ-2026-'+String(49+db.proj
 function renderProjects(){$('projects').innerHTML=`<div class=panel><div class=daynav><h3>案件台帳</h3><button id=addProject class=primary>＋案件追加</button></div>${db.projects.map(p=>`<div class=project-card><h4>${p.id}　${custName(p.customerId)}</h4><div><b>${p.name}</b> <span class="badge bblue">${p.status}</span></div><div class=small>${p.start} ～ ${p.deadline} / ${p.hours}h / ${p.people}名 / 主担当 ${empName(p.ownerId)}</div><div class=actions><button class=ghost data-pe="${p.id}">編集</button><button class=ghost data-po="${p.id}">この案件で予定</button><button class=danger data-pd="${p.id}">削除</button></div></div>`).join('')}</div>`;$('addProject').onclick=()=>projectModal(null);document.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>projectModal(proj(b.dataset.pe)));document.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{if(confirm('案件を削除しますか？')){db.projects=db.projects.filter(x=>x.id!==b.dataset.pd);save();renderAll();showView('projects')}});document.querySelectorAll('[data-po]').forEach(b=>b.onclick=()=>{currentDay=proj(b.dataset.po)?.start||currentDay;showView('day');renderDay();setTimeout(()=>taskModal(null,b.dataset.po),80)})}
 function renderYear(){const ms=[7,8,9,10,11,12];$('year').innerHTML=`<div class=grid2><div class=panel><h3>年間案件</h3><div class=tablewrap><table><tr><th>案件</th>${ms.map(m=>`<th>${m}月</th>`).join('')}<th>納期</th></tr>${db.projects.map(p=>`<tr><td><b>${p.id}</b><br>${p.name}</td>${ms.map(m=>{const active=new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline);return`<td>${active?`<div class="pill confirmed">${p.status}<br>${p.hours}h/${p.people}名</div>`:''}${db.tasks.filter(t=>t.projectId===p.id&&+t.date.slice(5,7)===m).map(t=>`<div class="pill ${t.status}">${t.id} ${t.name}</div>`).join('')}</td>`}).join('')}<td>${p.deadline}</td></tr>`).join('')}</table></div></div><div class=panel><h3>年間労務</h3><div class=tablewrap><table><tr><th>社員</th><th>休日</th><th>有休</th><th>就労</th><th>時間外</th><th>36協定</th></tr>${db.attendanceSummary.map(x=>`<tr><td>${empName(x.employeeId)}</td><td>${x.holidaysTaken}/${x.annualHolidays}</td><td>${x.paidLeaveTaken}</td><td>${x.annualWork}h</td><td>${x.overtime}h</td><td>${x.agreementPct}%</td></tr>`).join('')}</table></div></div></div>`}
 function renderQuarter(){$('quarter').innerHTML=[['Q3 7-9月',[7,8,9]],['Q4 10-12月',[10,11,12]]].map(([n,ms])=>`<div class=panel><h3>${n}</h3><div class=tablewrap><table><tr><th>案件</th><th>期間</th><th>工数</th><th>人員</th><th>主担当</th><th>未確定</th></tr>${db.projects.filter(p=>ms.some(m=>new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline))).map(p=>`<tr><td>${p.id}<br><b>${p.name}</b></td><td>${p.start}<br>～${p.deadline}</td><td>${p.hours}h</td><td>${p.people}名</td><td>${empName(p.ownerId)}</td><td>${db.tasks.filter(t=>t.projectId===p.id&&t.status!=='confirmed').length}</td></tr>`).join('')}</table></div></div>`).join('')}
-function renderMonth(){const[y,m]=currentMonth.split('-').map(Number),last=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay();let cells='';for(let i=0;i<first;i++)cells+='<div></div>';for(let d=1;d<=last;d++){const date=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,hs=db.holidays.filter(h=>h.date===date),ts=db.tasks.filter(t=>t.date===date),leave=db.attendance.filter(a=>a.date===date&&a.type!=='出勤'),cls=hs.some(h=>h.type==='statutory')?'holiday-bg':hs.length?'company-bg':'';cells+=`<div class="daycell ${cls}" data-date="${date}"><div class=daynum>${d}</div>${hs.map(h=>`<div class="pill ${h.type==='statutory'?'holiday':'companyHoliday'}">${h.name}</div>`).join('')}${leave.map(a=>`<div class="pill companyHoliday">${empName(a.employeeId)} ${a.type}</div>`).join('')}${ts.map(t=>`<div class="pill ${t.status}">${t.id} ${t.name}<br>${empName(t.employeeId)}</div>`).join('')}</div>`}$('month').innerHTML=`<div class=panel><div class=daynav><button id=mPrev class=ghost>←前月</button><div class=datebox>${y}年${m}月</div><button id=mNext class=ghost>翌月→</button></div><div class=calendar-scroll><div class=calendar-head>${['日','月','火','水','木','金','土'].map(x=>`<div>${x}</div>`).join('')}</div><div class=calendar>${cells}</div></div></div>`;$('mPrev').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()-1);currentMonth=d.toISOString().slice(0,7);renderMonth()};$('mNext').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()+1);currentMonth=d.toISOString().slice(0,7);renderMonth()};document.querySelectorAll('[data-date]').forEach(c=>c.onclick=()=>{currentDay=c.dataset.date;showView('day');renderDay()})}
+function renderMonth(){const[y,m]=currentMonth.split('-').map(Number),last=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay();let cells='';for(let i=0;i<first;i++)cells+='<div></div>';for(let d=1;d<=last;d++){const date=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,hs=db.holidays.filter(h=>h.date===date),ts=db.tasks.filter(t=>t.date===date),leave=db.attendance.filter(a=>a.date===date&&a.type!=='出勤'),cls=hs.some(h=>h.type==='statutory')?'holiday-bg holiday-statutory-cell':hs.some(h=>h.type==='company')?'company-bg holiday-company-cell':'';cells+=`<div class="daycell ${cls}" data-date="${date}"><div class=daynum>${d}</div>${hs.map(h=>`<div class="pill holiday-mark ${h.type==='statutory'?'holiday statutory-mark':'companyHoliday company-mark'}">${h.type==='statutory'?'法定休日':'所定休日'}</div>`).join('')}${leave.map(a=>`<div class="pill companyHoliday">${empName(a.employeeId)} ${a.type}</div>`).join('')}${ts.map(t=>`<div class="pill ${t.status}">${t.id} ${t.name}<br>${empName(t.employeeId)}</div>`).join('')}</div>`}$('month').innerHTML=`<div class=panel><div class=daynav><button id=mPrev class=ghost>←前月</button><div class=datebox>${y}年${m}月</div><button id=mNext class=ghost>翌月→</button></div><div class=calendar-scroll><div class=calendar-head>${['日','月','火','水','木','金','土'].map(x=>`<div>${x}</div>`).join('')}</div><div class=calendar>${cells}</div></div></div>`;$('mPrev').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()-1);currentMonth=d.toISOString().slice(0,7);renderMonth()};$('mNext').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()+1);currentMonth=d.toISOString().slice(0,7);renderMonth()};document.querySelectorAll('[data-date]').forEach(c=>c.onclick=()=>{currentDay=c.dataset.date;showView('day');renderDay()})}
 function rangeDef(){
  if(dayRange==='am')return{s:0,e:12,h:Array.from({length:12},(_,i)=>i),cols:12};
  if(dayRange==='pm')return{s:12,e:24,h:Array.from({length:12},(_,i)=>i+12),cols:12};
@@ -412,13 +412,64 @@ function renderPending(){
  bindPendingButtons();
 }
 
+
+function taskParticipants(t){
+ return [t.employeeId,...(t.passengerIds||[])].filter(Boolean);
+}
+function earliestTaskForEmployee(employeeId,tasks){
+ return tasks
+  .filter(t=>t.status!=='pending'&&t.start&&taskParticipants(t).includes(employeeId))
+  .sort((a,b)=>timeNum(a.start)-timeNum(b.start)||String(a.id).localeCompare(String(b.id)))[0]||null;
+}
+function orderedDayEmployees(tasks){
+ const all=activeEmployees();
+ const president=all.find(e=>e.role==='社長'||e.name==='社長');
+ const director=all.find(e=>e.role==='専務'||e.name==='専務');
+ const fixedIds=new Set([president?.id,director?.id].filter(Boolean));
+ const movable=all.filter(e=>!fixedIds.has(e.id));
+
+ // その日の最初の案件でグループ化。
+ // 同じ最初のタスクに入る社員は必ず上下に並ぶ。
+ movable.sort((a,b)=>{
+   const ta=earliestTaskForEmployee(a.id,tasks);
+   const tb=earliestTaskForEmployee(b.id,tasks);
+   const sa=ta?timeNum(ta.start):999;
+   const sb=tb?timeNum(tb.start):999;
+   if(sa!==sb)return sa-sb;
+   const ga=ta?(ta.visitGroupId||ta.projectId||ta.id):'ZZZ';
+   const gb=tb?(tb.visitGroupId||tb.projectId||tb.id):'ZZZ';
+   if(ga!==gb)return String(ga).localeCompare(String(gb));
+   return (a.order||999)-(b.order||999);
+ });
+
+ // 下から2番目=社長、最下段=専務
+ if(president)movable.push(president);
+ if(director)movable.push(director);
+ return movable;
+}
+function stackClassForTask(t,employeeId,orderedIds){
+ const participantIds=taskParticipants(t).filter(id=>orderedIds.includes(id));
+ if(participantIds.length<=1)return '';
+ const positions=participantIds.map(id=>orderedIds.indexOf(id)).sort((a,b)=>a-b);
+ const current=orderedIds.indexOf(employeeId);
+ const idx=positions.indexOf(current);
+ if(idx<0)return '';
+ // 連続していない場合は通常表示
+ for(let i=1;i<positions.length;i++)if(positions[i]!==positions[i-1]+1)return '';
+ if(idx===0)return ' team-stack-top';
+ if(idx===positions.length-1)return ' team-stack-bottom';
+ return ' team-stack-middle';
+}
+
 function renderDay(){
  const allTs=db.tasks.filter(t=>t.date===currentDay);
  const ts=allTs.filter(t=>t.status!=='pending');
  const hs=db.holidays.filter(h=>h.date===currentDay),rd=rangeDef(),span=rd.e-rd.s;
  let rows=`<div class="grow head"><div class=who>氏名 / 車両</div><div class=track style="--hours:${rd.cols}">${timeBands(rd.s,rd.e)}${rd.h.map(h=>`<div class=hour>${h}</div>`).join('')}</div></div>`;
 
- activeEmployees().forEach(e=>{
+ const orderedEmployees=orderedDayEmployees(ts);
+ const orderedIds=orderedEmployees.map(e=>e.id);
+ orderedEmployees.forEach(e=>{
   const a=db.attendance.find(x=>x.employeeId===e.id&&x.date===currentDay);
   let bars='';
   if(a&&a.type!=='出勤')bars+=`<div class="bar leave" style="left:0;width:100%">${a.type}</div>`;
@@ -428,14 +479,17 @@ function renderDay(){
    let st=Math.max(timeNum(t.start),rd.s),en=Math.min(timeNum(t.end),rd.e);
    if(en<=rd.s||st>=rd.e)return;
    const l=(st-rd.s)/span*100,w=(en-st)/span*100,isHelp=(t.passengerIds||[]).includes(e.id);
-   bars+=`<div class="bar ${taskClass(t)} ${t.urgent?'urgent':''} task-click" data-bar="${t.id}" style="left:${l}%;width:${w}%">${t.urgent?'🔴 ':''}${isHelp?'↳補助 ':''}${t.id} ${t.name}</div>`;
+   const stackClass=stackClassForTask(t,e.id,orderedIds);
+   const teamCount=taskParticipants(t).length;
+   bars+=`<div class="bar ${taskClass(t)} ${t.urgent?'urgent':''} task-click${stackClass}" data-bar="${t.id}" data-team-count="${teamCount}" style="left:${l}%;width:${w}%">${t.urgent?'🔴 ':''}${isHelp?'↳補助 ':''}${t.id} ${t.name}${teamCount>1?` · ${teamCount}人`:''}</div>`;
   });
 
   const cars=[...new Set(my.filter(t=>t.vehicleId).map(t=>vehName(t.vehicleId)))].join(', ');
   const att=attendanceFor(e.id,currentDay);
   const attText=att?(att.type==='出勤'?`勤怠 ${att.work||0}h${att.overtime?` / 残業 ${att.overtime}h`:''}`:`${att.type}`):'勤怠未入力';
 
-  rows+=`<div class=grow><div class=who><div class=ename>${e.name}</div><div class=car>${cars||'車両 -'}</div><div class=small>${attText}</div></div><div class=track style="--hours:${rd.cols}">${timeBands(rd.s,rd.e)}${bars}</div></div>`;
+  const firstTask=earliestTaskForEmployee(e.id,ts);
+  rows+=`<div class="grow staff-row"><div class=who><div class=ename>${e.name}</div><div class=car>${cars||'車両 -'}</div><div class=small>${attText}</div>${firstTask?`<div class=sort-hint>先頭 ${firstTask.start} ${firstTask.id}</div>`:''}</div><div class=track style="--hours:${rd.cols}">${timeBands(rd.s,rd.e)}${bars}</div></div>`;
  });
 
  const urg=allTs.filter(t=>t.urgent);
@@ -538,7 +592,21 @@ function renderDay(){
 }
 function masterModal(type,x){const edit=!!x;if(type==='employees'){const r=x||{id:'EMP-'+String(db.employees.length+1).padStart(3,'0'),name:'',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:db.employees.length+1};openModal(edit?'社員編集':'社員追加',`<div class=form><div><label>社員ID</label><input id=mmId value="${r.id}"></div><div><label>氏名</label><input id=mmName value="${r.name}"></div><div><label>役職</label><input id=mmRole value="${r.role}"></div><div><label>表示順</label><input id=mmOrder type=number value="${r.order}"></div><div><label>標準開始</label><input id=mmStart type=time value="${r.start}"></div><div><label>標準終了</label><input id=mmEnd type=time value="${r.end}"></div></div>`,()=>{const n={...r,id:$('mmId').value.trim(),name:$('mmName').value.trim(),role:$('mmRole').value.trim(),order:+$('mmOrder').value||99,start:$('mmStart').value,end:$('mmEnd').value};if(edit){const old=r.id;db.employees[db.employees.findIndex(a=>a.id===old)]=n;db.tasks.forEach(t=>{if(t.employeeId===old)t.employeeId=n.id});db.projects.forEach(p=>{if(p.ownerId===old)p.ownerId=n.id})}else db.employees.push(n);save();closeModal();renderAll();showView('masters')})}else if(type==='vehicles'){const r=x||{id:'CAR-'+String(db.vehicles.length+1).padStart(3,'0'),name:'',type:'',number:'',active:true,note:''};openModal(edit?'車両編集':'車両追加',`<div class=form><div><label>車両ID</label><input id=mmId value="${r.id}"></div><div><label>呼称</label><input id=mmName value="${r.name}"></div><div><label>車種</label><input id=mmType value="${r.type}"></div><div><label>ナンバー</label><input id=mmNumber value="${r.number}"></div><div><label>備考</label><textarea id=mmNote>${r.note||''}</textarea></div></div>`,()=>{const n={...r,id:$('mmId').value.trim(),name:$('mmName').value.trim(),type:$('mmType').value.trim(),number:$('mmNumber').value.trim(),note:$('mmNote').value.trim()};if(edit){const old=r.id;db.vehicles[db.vehicles.findIndex(a=>a.id===old)]=n;db.tasks.forEach(t=>{if(t.vehicleId===old)t.vehicleId=n.id})}else db.vehicles.push(n);save();closeModal();renderAll();showView('masters')})}else{const r=x||{id:'CUS-'+String(db.customers.length+1).padStart(3,'0'),name:'',short:'',address:'',contact:'',phone:'',active:true};openModal(edit?'顧客編集':'顧客追加',`<div class=form><div><label>顧客ID</label><input id=mmId value="${r.id}"></div><div><label>会社名</label><input id=mmName value="${r.name}"></div><div><label>略称</label><input id=mmShort value="${r.short}"></div><div><label>所在地</label><input id=mmAddress value="${r.address}"></div><div><label>担当者</label><input id=mmContact value="${r.contact}"></div><div><label>電話</label><input id=mmPhone value="${r.phone||''}"></div></div>`,()=>{const n={...r,id:$('mmId').value.trim(),name:$('mmName').value.trim(),short:$('mmShort').value.trim(),address:$('mmAddress').value.trim(),contact:$('mmContact').value.trim(),phone:$('mmPhone').value.trim()};if(edit){const old=r.id;db.customers[db.customers.findIndex(a=>a.id===old)]=n;db.projects.forEach(p=>{if(p.customerId===old)p.customerId=n.id})}else db.customers.push(n);save();closeModal();renderAll();showView('masters')})}}
 function renderMasters(){const list=masterType==='employees'?db.employees:masterType==='vehicles'?db.vehicles:db.customers;$('masters').innerHTML=`<div class=panel><div class=master-tabs><button class="master-tab ${masterType==='employees'?'active':''}" data-mt=employees>社員</button><button class="master-tab ${masterType==='vehicles'?'active':''}" data-mt=vehicles>車両</button><button class="master-tab ${masterType==='customers'?'active':''}" data-mt=customers>顧客</button></div><div class=daynav><h3>${masterType==='employees'?'社員':masterType==='vehicles'?'車両':'顧客'}マスタ</h3><button id=mAdd class=primary>＋追加</button></div>${list.map(x=>`<div class=master-card><h4>${x.id} ${x.name} ${x.active?'':'[無効]'}</h4><div class=small>${masterType==='employees'?`${x.role} / ${x.start}-${x.end}`:masterType==='vehicles'?`${x.type} / ${x.number}`:`${x.short} / ${x.address} / ${x.contact}`}</div><div class=actions><button class=ghost data-me="${x.id}">編集</button><button class=ghost data-ma="${x.id}">${x.active?'無効化':'有効化'}</button></div></div>`).join('')}</div>`;document.querySelectorAll('[data-mt]').forEach(b=>b.onclick=()=>{masterType=b.dataset.mt;renderMasters()});$('mAdd').onclick=()=>masterModal(masterType,null);document.querySelectorAll('[data-me]').forEach(b=>b.onclick=()=>masterModal(masterType,(masterType==='employees'?emp:masterType==='vehicles'?veh:cust)(b.dataset.me)));document.querySelectorAll('[data-ma]').forEach(b=>b.onclick=()=>{const x=(masterType==='employees'?emp:masterType==='vehicles'?veh:cust)(b.dataset.ma);x.active=!x.active;save();renderAll();showView('masters')})}
-function holidayModal(h){const r=h||{id:'H'+Date.now(),date:currentDay,type:'statutory',name:'法定休日'};openModal(h?'休日編集':'休日追加',`<div class=form><div><label>日付</label><input id=mhDate type=date value="${r.date}"></div><div><label>区分</label><select id=mhType><option value=statutory ${r.type==='statutory'?'selected':''}>法定休日</option><option value=company ${r.type==='company'?'selected':''}>所定休日</option></select></div><div><label>名称</label><input id=mhName value="${r.name}"></div></div>`,()=>{const n={id:r.id,date:$('mhDate').value,type:$('mhType').value,name:$('mhName').value.trim()||'休日'};if(h)db.holidays[db.holidays.findIndex(x=>x.id===h.id)]=n;else db.holidays.push(n);save();closeModal();renderAll();showView('holidays')})}
+function holidayModal(h){
+ const r=h||{id:'H'+Date.now(),date:currentDay,type:'company',name:'所定休日'};
+ openModal(h?'休日編集':'休日追加',`<div class=form>
+  <div><label>日付</label><input id=mhDate type=date value="${r.date}"></div>
+  <div><label>区分</label><select id=mhType>
+   <option value=company ${r.type==='company'?'selected':''}>所定休日</option>
+   <option value=statutory ${r.type==='statutory'?'selected':''}>法定休日</option>
+  </select></div>
+ </div>`,()=>{
+  const type=$('mhType').value;
+  const n={id:r.id,date:$('mhDate').value,type,name:type==='statutory'?'法定休日':'所定休日'};
+  if(h)db.holidays[db.holidays.findIndex(x=>x.id===h.id)]=n;else db.holidays.push(n);
+  save();closeModal();renderAll();showView('holidays')
+ })
+}
 function renderHolidays(){$('holidays').innerHTML=`<div class=panel><div class=daynav><h3>会社カレンダー</h3><button id=hAdd class=primary>＋休日追加</button></div><div class=tablewrap><table><tr><th>日付</th><th>区分</th><th>名称</th><th></th></tr>${db.holidays.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>`<tr><td>${h.date}</td><td>${h.type==='statutory'?'法定休日':'所定休日'}</td><td>${h.name}</td><td><button class=ghost data-he="${h.id}">編集</button> <button class=ghost data-hd="${h.id}">削除</button></td></tr>`).join('')}</table></div></div>`;$('hAdd').onclick=()=>holidayModal(null);document.querySelectorAll('[data-he]').forEach(b=>b.onclick=()=>holidayModal(db.holidays.find(h=>h.id===b.dataset.he)));document.querySelectorAll('[data-hd]').forEach(b=>b.onclick=()=>{db.holidays=db.holidays.filter(h=>h.id!==b.dataset.hd);save();renderAll();showView('holidays')})}
 function renderBackup(){$('backup').innerHTML=`<div class=grid2><div class=panel><h3>バックアップ</h3><p><button id=exportBtn class=primary>JSONを書き出す</button></p></div><div class=panel><h3>復元</h3><input id=importFile class=fileinput type=file accept=".json,application/json"><p><button id=importBtn class=primary>復元</button></p></div></div>`;$('exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='company_portal_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(u)};$('importBtn').onclick=()=>{const f=$('importFile').files[0];if(!f)return alert('ファイルを選択');const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(confirm('現在のデータを上書きしますか？')){db=x;save();renderAll();showView('dashboard')}}catch(e){alert('読込失敗')}};r.readAsText(f)}}
 function renderAll(){renderSummary();renderDashboard();renderProjects();renderYear();renderQuarter();renderMonth();renderDay();renderAttendance();renderPending();renderMasters();renderHolidays();renderBackup()}
