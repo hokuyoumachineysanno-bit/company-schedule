@@ -80,13 +80,37 @@ db.tasks.forEach(t=>{
  }
 });
 
+function normalizeClientText(v){
+ return String(v||'').toLowerCase().replace(/\s+/g,'').replace(/[　,，.。・\-_/\\]/g,'');
+}
+function taskCustomerId(t){
+ const p=proj(t.projectId);
+ return p?.customerId||'';
+}
+function sameClientTask(a,b){
+ const ca=taskCustomerId(a),cb=taskCustomerId(b);
+ if(ca&&cb)return ca===cb;
+ const sa=normalizeClientText(a.clientSite),sb=normalizeClientText(b.clientSite);
+ return !!sa&&!!sb&&(sa===sb||sa.includes(sb)||sb.includes(sa));
+}
+function nextVisitGroupId(){
+ let max=0;
+ (db.tasks||[]).forEach(t=>{
+  const m=String(t.visitGroupId||'').match(/^V(\d+)$/);
+  if(m)max=Math.max(max,+m[1]);
+ });
+ return 'V'+String(max+1).padStart(3,'0');
+}
 function findMainAssigneeConflict(candidate,editingId=''){
-  return (db.tasks||[]).find(t=>
-    t.id!==editingId &&
-    t.date===candidate.date &&
-    t.employeeId===candidate.employeeId &&
-    timeOverlap(candidate.start,candidate.end,t.start,t.end)
-  );
+ if(candidate.status==='pending'||!candidate.date||!candidate.start||!candidate.end)return null;
+ return (db.tasks||[]).find(t=>
+   t.id!==editingId &&
+   t.status==='confirmed' &&
+   t.date===candidate.date &&
+   t.employeeId===candidate.employeeId &&
+   t.start && (t.end||calcEndTime?.(t.start,t.plannedHours)) &&
+   timeOverlap(candidate.start,candidate.end,t.start,(t.end||calcEndTime?.(t.start,t.plannedHours)))
+ );
 }
 
 const taskHours=t=>Math.max(0,timeNum(t.end)-timeNum(t.start));
@@ -235,13 +259,31 @@ function taskModal(t,presetProject=''){
 
    const conflict=findMainAssigneeConflict(n,edit?t0.id:'');
    if(conflict){
-     alert(
-       `主担当「${empName(n.employeeId)}」の時間が重複しています。\n\n`+
-       `重複タスク：${conflict.id} ${conflict.name}\n`+
-       `${conflict.start} ～ ${conflict.end}\n\n`+
-       `開始・終了時刻をずらしてから保存してください。`
-     );
-     return;
+     const conflictEnd=conflict.end||(typeof calcEndTime==='function'?calcEndTime(conflict.start,conflict.plannedHours):'');
+     if(sameClientTask(n,conflict)){
+       const ok=confirm(
+         `主担当「${empName(n.employeeId)}」の時間が重複しています。\n\n`+
+         `既存：${conflict.id} ${conflict.name}　${conflict.start}～${conflictEnd}\n`+
+         `新規：${n.id} ${n.name}　${n.start}～${n.end}\n\n`+
+         `同一客先と判定しました。\n同一訪問として重ねて登録しますか？`
+       );
+       if(!ok)return;
+       const group=conflict.visitGroupId||nextVisitGroupId();
+       conflict.visitGroupId=group;
+       n.visitGroupId=group;
+       conflict.history=[...(conflict.history||[]),{
+         at:new Date().toLocaleString('ja-JP'),
+         text:`${n.id} と同一訪問 ${group} に統合`
+       }];
+     }else{
+       alert(
+         `主担当「${empName(n.employeeId)}」の時間が重複しています。\n\n`+
+         `重複タスク：${conflict.id} ${conflict.name}\n`+
+         `${conflict.start} ～ ${conflictEnd}\n\n`+
+         `客先が異なるため同時配置できません。時間をずらしてください。`
+       );
+       return;
+     }
    }
 
    if(edit){
