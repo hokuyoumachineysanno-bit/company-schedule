@@ -50,6 +50,10 @@ applyTimeSnapshotToPortal();
 let currentDay='2026-09-09',currentMonth='2026-09',masterType='employees',dayRange='all';
 const save=()=>{localStorage.setItem(KEY,JSON.stringify(db));};
 const emp=id=>db.employees.find(x=>x.id===id),veh=id=>db.vehicles.find(x=>x.id===id),cust=id=>db.customers.find(x=>x.id===id),proj=id=>db.projects.find(x=>x.id===id);
+const isProjectArchived=p=>['検収済','アフター','完了'].includes(p?.status);
+const activeProjects=()=>db.projects.filter(p=>!isProjectArchived(p));
+const archivedProjects=()=>db.projects.filter(isProjectArchived);
+
 const empName=id=>emp(id)?.name||'未割当',vehName=id=>veh(id)?.name||'-',custName=id=>cust(id)?.name||'',activeEmployees=()=>db.employees.filter(x=>x.active).sort((a,b)=>a.order-b.order);
 const projectLabel=id=>{const p=proj(id);return p?`${p.id} ${cust(p.customerId)?.short||custName(p.customerId)} ${p.name}`:'社内'};
 const statusText=s=>({confirmed:'確定',pending:'ペンディング',provisional:'仮予定'})[s]||s,statusBadge=s=>s==='confirmed'?'bc':s==='pending'?'bp':'bv';
@@ -60,6 +64,22 @@ const taskClass=t=>{
 };
 const timeNum=t=>{const[a,b]=t.split(':').map(Number);return a+b/60};
 const timeOverlap=(aStart,aEnd,bStart,bEnd)=>timeNum(aStart)<timeNum(bEnd)&&timeNum(bStart)<timeNum(aEnd);
+function calcEndTime(start,plannedHours){
+ if(!start)return '';
+ const mins=Math.round(timeNum(start)*60+(+plannedHours||0)*60);
+ if(mins>1440)return '';
+ const h=Math.floor(mins/60),m=mins%60;
+ return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function taskEnd(t){return t.end||calcEndTime(t.start,t.plannedHours)}
+db.tasks.forEach(t=>{
+ if(t.status==='unassigned')t.status='pending';
+ if(t.plannedHours==null){
+  const s=timeNum(t.start),e=timeNum(t.end);
+  t.plannedHours=(Number.isFinite(s)&&Number.isFinite(e)&&e>s)?Math.max(.25,Math.round((e-s)*4)/4):1;
+ }
+});
+
 function findMainAssigneeConflict(candidate,editingId=''){
   return (db.tasks||[]).find(t=>
     t.id!==editingId &&
@@ -94,7 +114,7 @@ function showView(name){document.querySelectorAll('.tab').forEach(x=>x.classList
 let modalSaveHandler=null;function openModal(title,html,onSave){$('modalTitle').textContent=title;$('modalBody').innerHTML=html;$('modal').classList.remove('hidden');modalSaveHandler=onSave;setTimeout(()=>$('modalBody').querySelector('input,select,textarea')?.focus(),40)}function closeModal(){$('modal').classList.add('hidden');modalSaveHandler=null}document.querySelectorAll('[data-modal-close]').forEach(x=>x.onclick=closeModal);$('modalCancel').onclick=closeModal;$('modalSave').onclick=()=>modalSaveHandler&&modalSaveHandler();
 function renderSummary(){const p=db.tasks.filter(t=>t.status==='pending').length,v=db.tasks.filter(t=>t.status==='provisional').length;$('summary').innerHTML=`<div class=card>進行案件<br><b>${db.projects.filter(p=>p.status!=='完了').length}</b></div><div class=card>社員<br><b>${db.employees.filter(x=>x.active).length}</b></div><div class=card>車両<br><b>${db.vehicles.filter(x=>x.active).length}</b></div><div class=card>顧客<br><b>${db.customers.filter(x=>x.active).length}</b></div><div class=card>確認待ち<br><b style="color:#ef4444">${p}</b></div><div class=card>仮予定<br><b style="color:#f59e0b">${v}</b></div>`}
 function renderDashboard(){const upcoming=db.projects.filter(p=>p.status!=='完了').sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,5);$('dashboard').innerHTML=`<div class=fieldtest-note><b>実機テスト版</b>：予定・勤怠・会社カレンダー・社員マスタは同じブラウザデータを参照しています。まず1週間、入力負担と見え方を確認してください。</div><div class=grid3><div class=panel><h3>予定の完成度</h3><b style="font-size:30px">${db.tasks.length?Math.round(db.tasks.filter(t=>t.status==='confirmed').length/db.tasks.length*100):100}%</b><p class=small>点滅している予定を前週までに消す。</p></div><div class=panel><h3>未確定</h3><p>ペンディング ${db.tasks.filter(t=>t.status==='pending').length}件 / 仮 ${db.tasks.filter(t=>t.status==='provisional').length}件</p></div><div class=panel><h3>共通マスタ</h3><p>社員 ${db.employees.length} / 車両 ${db.vehicles.length} / 顧客 ${db.customers.length}</p></div></div><div class=panel><h3>直近案件</h3><div class=tablewrap><table><tr><th>案件</th><th>顧客</th><th>納期</th><th>工数</th><th>主担当</th></tr>${upcoming.map(p=>`<tr><td>${p.id}<br><b>${p.name}</b></td><td>${custName(p.customerId)}</td><td>${p.deadline}</td><td>${p.hours}h</td><td>${empName(p.ownerId)}</td></tr>`).join('')}</table></div></div>`}
-function projectModal(p){const isEdit=!!p,p0=p||{id:'PJ-2026-'+String(49+db.projects.length).padStart(4,'0'),customerId:db.customers.find(x=>x.active)?.id||'',name:'',status:'受注',start:currentDay,deadline:addDays(currentDay,30),hours:80,people:2,ownerId:activeEmployees()[0]?.id||'',note:''};openModal(isEdit?'案件編集':'案件追加',`<div class=form><div><label>案件ID</label><input id=mpId value="${p0.id}"></div><div><label>状態</label><select id=mpStatus>${['情報','アプローチ','商談中','見積提出','受注','施工中','検収待ち','検収済','アフター','完了'].map(x=>`<option ${x===p0.status?'selected':''}>${x}</option>`).join('')}</select></div><div><label>顧客</label><select id=mpCustomer>${db.customers.filter(x=>x.active||x.id===p0.customerId).map(x=>`<option value="${x.id}" ${x.id===p0.customerId?'selected':''}>${x.name}</option>`).join('')}</select></div><div><label>案件名</label><input id=mpName value="${p0.name}"></div><div><label>開始日</label><input id=mpStart type=date value="${p0.start}"></div><div><label>納期</label><input id=mpDeadline type=date value="${p0.deadline}"></div><div><label>予定工数</label><input id=mpHours type=number value="${p0.hours}"></div><div><label>必要人員</label><input id=mpPeople type=number value="${p0.people}"></div><div><label>主担当</label><select id=mpOwner>${activeEmployees().map(e=>`<option value="${e.id}" ${e.id===p0.ownerId?'selected':''}>${e.name}</option>`).join('')}</select></div><div><label>備考</label><textarea id=mpNote>${p0.note||''}</textarea></div></div>`,()=>{const n={id:$('mpId').value.trim(),status:$('mpStatus').value,customerId:$('mpCustomer').value,name:$('mpName').value.trim(),start:$('mpStart').value,deadline:$('mpDeadline').value,hours:+$('mpHours').value||0,people:+$('mpPeople').value||1,ownerId:$('mpOwner').value,note:$('mpNote').value.trim()};if(!n.id||!n.name)return alert('案件IDと案件名は必須です');if(isEdit){const old=p.id,idx=db.projects.findIndex(x=>x.id===old);db.projects[idx]=n;db.tasks.forEach(t=>{if(t.projectId===old)t.projectId=n.id})}else{if(db.projects.some(x=>x.id===n.id))return alert('案件IDが重複しています');db.projects.push(n)}save();closeModal();renderAll();showView('projects')})}
+function projectModal(p){const isEdit=!!p,p0=p||{id:'PJ-2026-'+String(49+db.projects.length).padStart(4,'0'),customerId:db.customers.find(x=>x.active)?.id||'',name:'',status:'受注',start:currentDay,deadline:addDays(currentDay,30),hours:80,people:2,ownerId:activeEmployees()[0]?.id||'',note:''};openModal(isEdit?'案件編集':'案件追加',`<div class=form><div><label>案件ID</label><input id=mpId value="${p0.id}"></div><div><label>状態</label><select id=mpStatus>${['情報','アプローチ','商談中','見積提出','受注','施工中','検収待ち','検収済','アフター','完了'].map(x=>`<option ${x===p0.status?'selected':''}>${x}</option>`).join('')}</select></div><div><label>顧客</label><select id=mpCustomer>${db.customers.filter(x=>x.active||x.id===p0.customerId).map(x=>`<option value="${x.id}" ${x.id===p0.customerId?'selected':''}>${x.name}</option>`).join('')}</select></div><div><label>案件名</label><input id=mpName value="${p0.name}"></div><div><label>施工予定日</label><input id=mpStart type=date value="${p0.start}"></div><div><label>納期</label><input id=mpDeadline type=date value="${p0.deadline}"></div><div><label>予定工数</label><input id=mpHours type=number value="${p0.hours}"></div><div><label>必要人員</label><input id=mpPeople type=number value="${p0.people}"></div><div><label>主担当</label><select id=mpOwner>${activeEmployees().map(e=>`<option value="${e.id}" ${e.id===p0.ownerId?'selected':''}>${e.name}</option>`).join('')}</select></div><div><label>備考</label><textarea id=mpNote>${p0.note||''}</textarea></div></div>`,()=>{const n={id:$('mpId').value.trim(),status:$('mpStatus').value,customerId:$('mpCustomer').value,name:$('mpName').value.trim(),start:$('mpStart').value,deadline:$('mpDeadline').value,hours:+$('mpHours').value||0,people:+$('mpPeople').value||1,ownerId:$('mpOwner').value,note:$('mpNote').value.trim()};if(!n.id||!n.name)return alert('案件IDと案件名は必須です');if(isEdit){const old=p.id,idx=db.projects.findIndex(x=>x.id===old);db.projects[idx]=n;db.tasks.forEach(t=>{if(t.projectId===old)t.projectId=n.id})}else{if(db.projects.some(x=>x.id===n.id))return alert('案件IDが重複しています');db.projects.push(n)}save();closeModal();renderAll();showView('projects')})}
 function renderProjects(){$('projects').innerHTML=`<div class=panel><div class=daynav><h3>案件台帳</h3><button id=addProject class=primary>＋案件追加</button></div>${db.projects.map(p=>`<div class=project-card><h4>${p.id}　${custName(p.customerId)}</h4><div><b>${p.name}</b> <span class="badge bblue">${p.status}</span></div><div class=small>${p.start} ～ ${p.deadline} / ${p.hours}h / ${p.people}名 / 主担当 ${empName(p.ownerId)}</div><div class=actions><button class=ghost data-pe="${p.id}">編集</button><button class=ghost data-po="${p.id}">この案件で予定</button><button class=danger data-pd="${p.id}">削除</button></div></div>`).join('')}</div>`;$('addProject').onclick=()=>projectModal(null);document.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>projectModal(proj(b.dataset.pe)));document.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{if(confirm('案件を削除しますか？')){db.projects=db.projects.filter(x=>x.id!==b.dataset.pd);save();renderAll();showView('projects')}});document.querySelectorAll('[data-po]').forEach(b=>b.onclick=()=>{currentDay=proj(b.dataset.po)?.start||currentDay;showView('day');renderDay();setTimeout(()=>taskModal(null,b.dataset.po),80)})}
 function renderYear(){const ms=[7,8,9,10,11,12];$('year').innerHTML=`<div class=grid2><div class=panel><h3>年間案件</h3><div class=tablewrap><table><tr><th>案件</th>${ms.map(m=>`<th>${m}月</th>`).join('')}<th>納期</th></tr>${db.projects.map(p=>`<tr><td><b>${p.id}</b><br>${p.name}</td>${ms.map(m=>{const active=new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline);return`<td>${active?`<div class="pill confirmed">${p.status}<br>${p.hours}h/${p.people}名</div>`:''}${db.tasks.filter(t=>t.projectId===p.id&&+t.date.slice(5,7)===m).map(t=>`<div class="pill ${t.status}">${t.id} ${t.name}</div>`).join('')}</td>`}).join('')}<td>${p.deadline}</td></tr>`).join('')}</table></div></div><div class=panel><h3>年間労務</h3><div class=tablewrap><table><tr><th>社員</th><th>休日</th><th>有休</th><th>就労</th><th>時間外</th><th>36協定</th></tr>${db.attendanceSummary.map(x=>`<tr><td>${empName(x.employeeId)}</td><td>${x.holidaysTaken}/${x.annualHolidays}</td><td>${x.paidLeaveTaken}</td><td>${x.annualWork}h</td><td>${x.overtime}h</td><td>${x.agreementPct}%</td></tr>`).join('')}</table></div></div></div>`}
 function renderQuarter(){$('quarter').innerHTML=[['Q3 7-9月',[7,8,9]],['Q4 10-12月',[10,11,12]]].map(([n,ms])=>`<div class=panel><h3>${n}</h3><div class=tablewrap><table><tr><th>案件</th><th>期間</th><th>工数</th><th>人員</th><th>主担当</th><th>未確定</th></tr>${db.projects.filter(p=>ms.some(m=>new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline))).map(p=>`<tr><td>${p.id}<br><b>${p.name}</b></td><td>${p.start}<br>～${p.deadline}</td><td>${p.hours}h</td><td>${p.people}名</td><td>${empName(p.ownerId)}</td><td>${db.tasks.filter(t=>t.projectId===p.id&&t.status!=='confirmed').length}</td></tr>`).join('')}</table></div></div>`).join('')}
@@ -122,7 +142,7 @@ function taskModal(t,presetProject=''){
   <input type=hidden id=mtCategory value="${t0.category||'客先案件'}">
 
   <div class=form>
-   <div><label>日付</label><input id=mtDate type=date value="${t0.date}"></div>
+   <div><label>日付（ペンディングは未定可）</label><input id=mtDate type=date value="${t0.date}"></div>
    <div><label>ID</label><input id=mtId value="${t0.id}" readonly></div>
 
    <div><label>案件</label>
@@ -139,8 +159,14 @@ function taskModal(t,presetProject=''){
     <input id=mtClientSite value="${t0.clientSite||''}" placeholder="例：○○食品 富山工場 / 富山市○○">
    </div>
 
-   <div><label>開始</label><input id=mtStart type=time step=900 value="${t0.start}"></div>
-   <div><label>終了</label><input id=mtEnd type=time step=900 value="${t0.end}"></div>
+   <div><label>予定工数</label><input id=mtHours type=number min=.25 step=.25 value="${t0.plannedHours||2}"> <span class=small>h</span></div>
+   <div><label>開始</label><input id=mtStart type=time step=900 value="${t0.start||''}"></div>
+   <div><label>終了</label><input id=mtEnd type=time value="${taskEnd(t0)||''}" readonly></div>
+   <div class="time-shift-controls" style="grid-column:1/-1">
+    <button type=button id=shiftMinus class=ghost>−30分</button>
+    <button type=button id=shiftPlus class=ghost>＋30分</button>
+    <span class=small>スマホではこのボタンで配置を微調整できます。</span>
+   </div>
 
    <div><label>主担当</label>
     <select id=mtEmployee>
@@ -194,16 +220,18 @@ function taskModal(t,presetProject=''){
      employeeId:$('mtEmployee').value,
      vehicleId:$('mtVehicle').value,
      start:$('mtStart').value,
-     end:$('mtEnd').value,
+     plannedHours:+$('mtHours').value||0,
+     end:calcEndTime($('mtStart').value,+$('mtHours').value||0),
      status:$('mtStatus').value,
      urgent:$('mtUrgent').checked,
      passengerIds:[...$('modalBody').querySelectorAll('[data-helper]:checked')].map(x=>x.dataset.helper)
    };
 
-   if(timeNum(n.end)<=timeNum(n.start)){
-     alert('終了時刻を開始時刻より後にしてください。');
-     return;
+   if(n.status!=='pending'&&(!n.date||!n.start)){
+     alert('確定・仮予定は日付と開始時刻を入力してください。');return;
    }
+   if(n.plannedHours<=0){alert('予定工数を入力してください。');return;}
+   if(n.status!=='pending'&&!n.end){alert('予定工数が24:00を超えています。');return;}
 
    const conflict=findMainAssigneeConflict(n,edit?t0.id:'');
    if(conflict){
@@ -240,6 +268,18 @@ function taskModal(t,presetProject=''){
    const wrap=$('clientSiteWrap');
    if(wrap)wrap.style.display=b.dataset.kind==='客先案件'?'block':'none';
  });
+
+ const refreshEnd=()=>{if($('mtEnd'))$('mtEnd').value=calcEndTime($('mtStart').value,+$('mtHours').value||0)};
+ $('mtStart')?.addEventListener('input',refreshEnd);$('mtHours')?.addEventListener('input',refreshEnd);
+ const shift=mins=>{
+  if(!$('mtStart').value)$('mtStart').value='08:30';
+  let total=Math.round(timeNum($('mtStart').value)*60)+mins;
+  total=Math.max(0,Math.min(1430,total));
+  $('mtStart').value=`${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+  refreshEnd();
+ };
+ if($('shiftMinus'))$('shiftMinus').onclick=()=>shift(-30);
+ if($('shiftPlus'))$('shiftPlus').onclick=()=>shift(30);
 
  if(edit){
    const foot=$('modal').querySelector('.modalfoot');

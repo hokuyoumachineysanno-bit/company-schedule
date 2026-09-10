@@ -179,3 +179,13 @@ textarea{min-height:68px}
  .day-gantt[data-range="all"] .bar{font-size:10px;padding:6px 4px;text-align:left}
  .day-gantt[data-range="all"] .bar::first-letter{font-size:inherit}
 }
+
+/* v2.0.4 holiday colors */
+.mcell.holiday-statutory{background:#fff0f0 !important}
+.mcell.holiday-company{background:#f5f0ff !important}
+.holiday-choice{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.holiday-choice-btn{padding:12px 18px;border-radius:10px;border:2px solid transparent;font-weight:800;cursor:pointer}
+.holiday-choice-btn.company{background:#f5f0ff;color:#6d28d9}
+.holiday-choice-btn.statutory{background:#fff0f0;color:#b91c1c}
+.holiday-choice-btn.active{border-color:currentColor;box-shadow:0 0 0 2px rgba(15,23,42,.08)}
+.time-shift-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
