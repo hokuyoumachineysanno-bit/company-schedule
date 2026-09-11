@@ -350,3 +350,24 @@ body.bar-drag-active .gantt{cursor:grabbing!important}
 .expired-card{display:flex;justify-content:space-between;gap:14px;align-items:center;border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#fff}
 .expired-main{min-width:0}.expired-actions{display:flex;gap:6px;flex-wrap:wrap}
 @media(max-width:700px){.expired-card{align-items:flex-start;flex-direction:column}.expired-actions{width:100%}.expired-actions button{flex:1}}
+
+/* v2.0.15 月フォーカス：主担当＋補助人員 */
+.month-main{font-weight:700}
+.month-helper{font-size:11px;opacity:.82}
+.daycell .pill.provisional .month-helper{font-weight:700;opacity:1}
+
+/* v2.0.16 月フォーカス：日フォーカスと同じ予定バー表現 */
+.daycell{background:#f1f5f9}
+.month-taskbar{position:relative;margin:4px 0;padding:5px 7px;border-radius:7px;font-size:11px;font-weight:700;line-height:1.25;cursor:pointer;overflow:hidden}
+.month-taskbar.cat-client{background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd}
+.month-taskbar.cat-internal{background:#dcfce7;color:#166534;border:1px solid #86efac}
+.month-taskbar.cat-other{background:#fef3c7;color:#92400e;border:1px solid #fcd34d}
+.month-taskbar.is-provisional{border-width:2px;border-style:dashed;animation:provisionalBlink 1.15s ease-in-out infinite}
+.month-taskbar.urgent{background:#dc2626!important;color:#fff!important;border:1px solid #991b1b!important;animation:none!important}
+.month-task-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.month-task-team{display:flex;gap:7px;flex-wrap:wrap;margin-top:3px;font-size:10px}
+.month-taskbar .month-main{font-weight:800}
+.month-taskbar .month-helper{font-weight:700;opacity:.9}
+/* 休日色はグレー背景より優先 */
+.daycell.holiday-statutory-cell{background:#ffdede!important}
+.daycell.holiday-company-cell{background:#eadfff!important}
