@@ -329,3 +329,12 @@ textarea{min-height:68px}
 
 /* v2.0.10 予定工数/予定枠 */
 .time-shift-controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* v2.0.11 日フォーカス・ドラッグ */
+.bar.task-click{cursor:grab;user-select:none;-webkit-user-select:none}
+.bar.task-click.dragging{cursor:grabbing;z-index:50;opacity:.9;box-shadow:0 5px 14px rgba(15,23,42,.28)!important;touch-action:none}
+.bar-resize-handle{position:absolute;right:-1px;top:0;width:10px;height:100%;cursor:ew-resize;border-right:3px solid rgba(15,23,42,.38);border-radius:0 5px 5px 0}
+.bar:hover .bar-resize-handle{background:rgba(255,255,255,.3)}
+.day-drag-tip{position:fixed;z-index:99999;display:none;padding:6px 9px;border-radius:7px;background:#0f172a;color:#fff;font-size:12px;font-weight:700;pointer-events:none;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.22)}
+body.bar-drag-active{user-select:none;-webkit-user-select:none}
+@media(max-width:700px){.bar-resize-handle{width:15px}}

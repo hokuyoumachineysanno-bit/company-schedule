@@ -609,6 +609,93 @@ function bindOpenPending(){
  document.querySelectorAll('[data-open-pending]').forEach(b=>b.onclick=()=>showView('pending'));
  bindPendingButtons();
 }
+
+let dayBarDrag=null;
+function minutesToTime(total){
+ total=Math.max(0,Math.min(1430,Math.round(total/30)*30));
+ return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+}
+function dayBarRangeText(startMin,hours){
+ const endMin=startMin+Math.round(hours*60);
+ const end=endMin>=1440?'24:00':minutesToTime(endMin);
+ return `${minutesToTime(startMin)}–${end}　${hours.toFixed(1)}h`;
+}
+function showDragTip(text,x,y){
+ let tip=document.getElementById('dayDragTip');
+ if(!tip){tip=document.createElement('div');tip.id='dayDragTip';tip.className='day-drag-tip';document.body.appendChild(tip)}
+ tip.textContent=text;tip.style.left=`${x+12}px`;tip.style.top=`${y-38}px`;tip.style.display='block';
+}
+function hideDragTip(){const t=document.getElementById('dayDragTip');if(t)t.style.display='none'}
+function bindDayBarInteractions(){
+ document.querySelectorAll('[data-bar]').forEach(el=>{
+  let pressTimer=null,startPoint=null,suppressClick=false;
+  const begin=(ev,mode)=>{
+   const task=db.tasks.find(t=>t.id===el.dataset.bar);
+   if(!task||task.status==='pending'||!task.start)return;
+   const gantt=el.closest('.gantt'); if(!gantt)return;
+   const rect=gantt.getBoundingClientRect();
+   const startMin=Math.round(timeNum(task.start)*60/30)*30;
+   const slotHours=+(task.slotHours??task.plannedHours)||.5;
+   dayBarDrag={el,task,mode,rect,startX:ev.clientX,startMin,slotHours,newStartMin:startMin,newSlotHours:slotHours,moved:false};
+   el.classList.add('dragging');document.body.classList.add('bar-drag-active');
+   try{el.setPointerCapture(ev.pointerId)}catch(e){}
+   showDragTip(dayBarRangeText(startMin,slotHours),ev.clientX,ev.clientY);
+  };
+  el.addEventListener('pointerdown',ev=>{
+   if(ev.button!=null&&ev.button!==0)return;
+   const handle=ev.target.closest('.bar-resize-handle');
+   startPoint={x:ev.clientX,y:ev.clientY}; suppressClick=false;
+   if(handle){ev.preventDefault();ev.stopPropagation();begin(ev,'resize');suppressClick=true}
+   else if(ev.pointerType==='mouse'){ev.preventDefault();begin(ev,'move')}
+   else pressTimer=setTimeout(()=>{begin(ev,'move');suppressClick=true},450);
+  });
+  el.addEventListener('pointermove',ev=>{
+   if(pressTimer&&startPoint&&(Math.abs(ev.clientX-startPoint.x)>8||Math.abs(ev.clientY-startPoint.y)>8)){clearTimeout(pressTimer);pressTimer=null}
+   const d=dayBarDrag;if(!d||d.el!==el)return;
+   ev.preventDefault();
+   const deltaMin=Math.round((((ev.clientX-d.startX)/d.rect.width)*1440)/30)*30;
+   if(d.mode==='move'){
+    const duration=Math.round(d.slotHours*60);
+    d.newStartMin=Math.max(0,Math.min(1440-duration,d.startMin+deltaMin));
+    d.el.style.left=`${d.newStartMin/1440*100}%`;
+   }else{
+    let dur=Math.max(30,Math.round(d.slotHours*60)+deltaMin);
+    dur=Math.min(1440-d.startMin,dur);
+    d.newSlotHours=dur/60;d.el.style.width=`${dur/1440*100}%`;
+   }
+   if(Math.abs(deltaMin)>=30){d.moved=true;suppressClick=true}
+   showDragTip(dayBarRangeText(d.newStartMin,d.newSlotHours),ev.clientX,ev.clientY);
+  });
+  el.addEventListener('pointerup',ev=>{
+   if(pressTimer){clearTimeout(pressTimer);pressTimer=null}
+   const d=dayBarDrag;
+   if(!d||d.el!==el){if(!suppressClick)taskModal(db.tasks.find(t=>t.id===el.dataset.bar));return}
+   ev.preventDefault();ev.stopPropagation();
+   d.el.classList.remove('dragging');document.body.classList.remove('bar-drag-active');hideDragTip();dayBarDrag=null;
+   if(!d.moved){if(d.mode!=='resize')taskModal(d.task);else renderDay();return}
+   const oldStart=d.task.start,oldSlot=+(d.task.slotHours??d.task.plannedHours)||.5;
+   const newStart=minutesToTime(d.newStartMin),newSlot=Math.max(.5,Math.round(d.newSlotHours*2)/2);
+   const candidate={...d.task,start:newStart,slotHours:newSlot,end:calcEndTime(newStart,newSlot)};
+   const conflict=findMainAssigneeConflict(candidate,d.task.id);
+   if(conflict&&!sameClientTask(candidate,conflict)){
+    alert(`時間を変更できません。\n主担当「${empName(candidate.employeeId)}」の ${conflict.id} ${taskDisplayName(conflict)} と重複します。`);
+    renderDay();return;
+   }
+   if(conflict&&sameClientTask(candidate,conflict)){
+    if(!confirm(`変更後の時間が ${conflict.id} ${taskDisplayName(conflict)} と重複します。\n同一客先として重ねますか？`)){renderDay();return}
+    const group=conflict.visitGroupId||nextVisitGroupId();conflict.visitGroupId=group;d.task.visitGroupId=group;
+   }
+   d.task.start=newStart;d.task.slotHours=newSlot;d.task.end=calcEndTime(newStart,newSlot);
+   d.task.history=[...(d.task.history||[]),{at:new Date().toLocaleString('ja-JP'),text:d.mode==='move'?`時間バー移動 ${oldStart} → ${newStart}`:`予定枠変更 ${oldSlot}h → ${newSlot}h`}];
+   save();renderAll();showView('day');
+  });
+  el.addEventListener('pointercancel',()=>{
+   if(pressTimer){clearTimeout(pressTimer);pressTimer=null}
+   if(dayBarDrag?.el===el){dayBarDrag=null;el.classList.remove('dragging');document.body.classList.remove('bar-drag-active');hideDragTip();renderDay()}
+  });
+ });
+}
+
 function renderPending(){
  $('pending').innerHTML=`<div class=panel>
   <div class=daynav><div><h3>ペンディング / 未割当一覧</h3><p class=small>日程未確定でも予定工数だけ保持できます。</p></div>
@@ -700,7 +787,7 @@ function renderDay(){
    const stackClass=stackClassForTask(t,e.id,orderedIds);
    const teamCount=taskParticipants(t).length;
    const rowVehicle=taskVehicleLabelForEmployee(t,e.id);
-   bars+=`<div class="bar ${taskClass(t)} ${t.urgent?'urgent':''} task-click${stackClass}" data-bar="${t.id}" data-team-count="${teamCount}" style="left:${l}%;width:${w}%">${t.urgent?'🔴 ':''}${isHelp?'↳補助 ':''}${t.id} ${taskDisplayName(t)}${rowVehicle?` ｜🚚 ${rowVehicle}`:''}${teamCount>1?` · ${teamCount}人`:''}</div>`;
+   bars+=`<div class="bar ${taskClass(t)} ${t.urgent?'urgent':''} task-click${stackClass}" data-bar="${t.id}" data-team-count="${teamCount}" style="left:${l}%;width:${w}%">${t.urgent?'🔴 ':''}${isHelp?'↳補助 ':''}${t.id} ${taskDisplayName(t)}${rowVehicle?` ｜🚚 ${rowVehicle}`:''}${teamCount>1?` · ${teamCount}人`:''}<span class="bar-resize-handle" title="予定枠を伸縮"></span></div>`;
   });
 
   const cars=[...new Set(my.map(t=>taskVehicleLabelForEmployee(t,e.id)).filter(Boolean))].join(', ');
@@ -760,7 +847,8 @@ function renderDay(){
  $('openAttendance').onclick=()=>{renderAttendance();showView('attendance')};
  $('addTask').onclick=()=>taskModal(null);
  document.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{dayRange=b.dataset.range;renderDay()});
- document.querySelectorAll('[data-te],[data-bar]').forEach(b=>b.onclick=()=>taskModal(db.tasks.find(t=>t.id===(b.dataset.te||b.dataset.bar))));
+ document.querySelectorAll('[data-te]').forEach(b=>b.onclick=()=>taskModal(db.tasks.find(t=>t.id===b.dataset.te)));
+ bindDayBarInteractions();
  document.querySelectorAll('[data-td]').forEach(b=>b.onclick=()=>{
    const t=db.tasks.find(x=>x.id===b.dataset.td);if(!t)return;
    if(!confirm(`タスク ${t.id}「${t.name}」を削除しますか？`))return;
