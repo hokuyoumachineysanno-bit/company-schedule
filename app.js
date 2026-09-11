@@ -3,6 +3,28 @@ const KEY='companyPortalV06';
 const seed={employees:[{id:'EMP-001',name:'社長',role:'社長',active:true,attendance:true,start:'08:00',end:'17:00',order:1},{id:'EMP-002',name:'専務',role:'専務',active:true,attendance:true,start:'08:00',end:'17:00',order:2},{id:'EMP-003',name:'山田',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:3},{id:'EMP-004',name:'佐藤',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:4},{id:'EMP-005',name:'鈴木',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:5}],vehicles:[{id:'CAR-001',name:'ハイエース①',type:'ハイエース',number:'富山100 あ 1234',active:true,note:''},{id:'CAR-002',name:'ハイエース②',type:'ハイエース',number:'富山100 あ 5678',active:true,note:''},{id:'CAR-003',name:'プロボックス',type:'プロボックス',number:'富山500 い 1111',active:true,note:''}],customers:[{id:'CUS-001',name:'○○食品株式会社',short:'○○食品',address:'富山県',contact:'田中様',phone:'',active:true},{id:'CUS-002',name:'△△食品株式会社',short:'△△食品',address:'石川県',contact:'佐々木様',phone:'',active:true}],projects:[{id:'PJ-2026-0042',customerId:'CUS-001',name:'コンベア改造',status:'受注',start:'2026-09-09',deadline:'2026-11-20',hours:120,people:2,ownerId:'EMP-003',note:'現調→設計→製作→現地工事'},{id:'PJ-2026-0048',customerId:'CUS-002',name:'洗浄機更新',status:'見積中',start:'2026-09-15',deadline:'2026-12-10',hours:240,people:3,ownerId:'EMP-002',note:'メーカー実機検証あり'}],tasks:[{id:'A',date:'2026-09-09',name:'現調',type:'現調',projectId:'PJ-2026-0042',employeeId:'EMP-001',vehicleId:'',start:'08:00',end:'10:00',status:'confirmed'},{id:'B',date:'2026-09-09',name:'社内打合せ',type:'その他',projectId:'',employeeId:'EMP-001',vehicleId:'',start:'11:00',end:'12:00',status:'pending'},{id:'C',date:'2026-09-09',name:'商談',type:'商談',projectId:'PJ-2026-0048',employeeId:'EMP-001',vehicleId:'',start:'13:00',end:'15:00',status:'confirmed'},{id:'D',date:'2026-09-09',name:'客先修理',type:'客先修理',projectId:'',employeeId:'EMP-002',vehicleId:'CAR-001',start:'08:30',end:'12:00',status:'confirmed'},{id:'E',date:'2026-09-09',name:'見積作成',type:'見積',projectId:'PJ-2026-0048',employeeId:'EMP-002',vehicleId:'',start:'13:00',end:'16:00',status:'provisional'},{id:'F',date:'2026-09-09',name:'架台組立',type:'社内製作',projectId:'PJ-2026-0042',employeeId:'EMP-003',vehicleId:'',start:'09:00',end:'12:00',status:'confirmed'}],holidays:[{id:'H1',date:'2026-09-13',type:'statutory',name:'法定休日'},{id:'H2',date:'2026-09-19',type:'company',name:'所定休日'},{id:'H3',date:'2026-09-20',type:'statutory',name:'法定休日'}],attendance:[{employeeId:'EMP-001',date:'2026-09-09',type:'出勤',work:8.5,overtime:.5,paidLeave:0},{employeeId:'EMP-002',date:'2026-09-09',type:'出勤',work:9,overtime:1,paidLeave:0},{employeeId:'EMP-003',date:'2026-09-09',type:'出勤',work:8,overtime:0,paidLeave:0},{employeeId:'EMP-004',date:'2026-09-09',type:'有休',work:0,overtime:0,paidLeave:1},{employeeId:'EMP-005',date:'2026-09-09',type:'出勤',work:8,overtime:0,paidLeave:0}],attendanceSummary:[{employeeId:'EMP-001',annualHolidays:110,holidaysTaken:71,paidLeaveTaken:3,annualWork:1450,overtime:185,agreementPct:51},{employeeId:'EMP-002',annualHolidays:110,holidaysTaken:69,paidLeaveTaken:2,annualWork:1510,overtime:218,agreementPct:61},{employeeId:'EMP-003',annualHolidays:110,holidaysTaken:75,paidLeaveTaken:4,annualWork:1420,overtime:146,agreementPct:41},{employeeId:'EMP-004',annualHolidays:110,holidaysTaken:78,paidLeaveTaken:5,annualWork:1390,overtime:98,agreementPct:27},{employeeId:'EMP-005',annualHolidays:110,holidaysTaken:80,paidLeaveTaken:3,annualWork:1370,overtime:86,agreementPct:24}]};
 let db=JSON.parse(localStorage.getItem(KEY)||'null')||JSON.parse(JSON.stringify(seed));
 
+const IMPORTED_CUSTOMERS=Array.isArray(window.HOKUYOU_IMPORTED_CUSTOMERS)?window.HOKUYOU_IMPORTED_CUSTOMERS:[];
+function mergeImportedCustomers(){
+ if(!Array.isArray(db.customers))db.customers=[];
+ const byId=new Map(db.customers.map(c=>[String(c.id),c]));
+ IMPORTED_CUSTOMERS.forEach(src=>{
+   const id=String(src.id);
+   const cur=byId.get(id);
+   if(!cur){
+     const n={...src};db.customers.push(n);byId.set(id,n);
+   }else if(cur.source==='excel'){
+     Object.assign(cur,src,{active:cur.active!==false});
+   }
+ });
+}
+mergeImportedCustomers();
+db.projects.forEach(p=>{
+ if(!p.deliveryCustomerId)p.deliveryCustomerId=p.customerId||'';
+ if(!p.billingCustomerId)p.billingCustomerId=p.deliveryCustomerId||p.customerId||'';
+ p.customerId=p.deliveryCustomerId||p.customerId||'';
+});
+
+
 localStorage.setItem(KEY,JSON.stringify(db));db.tasks.forEach(t=>{if(t.status==='unassigned')t.status='pending';if(!Array.isArray(t.passengerIds))t.passengerIds=[];if(!t.category)t.category=(['設計','見積','社内製作','段取り','整備'].includes(t.type)?'社内案件':'客先案件');if(typeof t.urgent!=='boolean')t.urgent=false;if(!Array.isArray(t.history))t.history=[];});db.projects.forEach(p=>{const m={'引合':'情報','見積中':'商談中','進行中':'施工中','保留':'商談中','完了':'検収済'};p.status=m[p.status]||p.status;if(!Array.isArray(p.history))p.history=[];});
 function applyTimeSnapshotToPortal(){
   let cache=null;
@@ -55,7 +77,54 @@ const activeProjects=()=>db.projects.filter(p=>!isProjectArchived(p));
 const archivedProjects=()=>db.projects.filter(isProjectArchived);
 
 const empName=id=>emp(id)?.name||'未割当',vehName=id=>veh(id)?.name||'-',custName=id=>cust(id)?.name||'',activeEmployees=()=>db.employees.filter(x=>x.active).sort((a,b)=>a.order-b.order);
-const projectLabel=id=>{const p=proj(id);return p?`${p.id} ${cust(p.customerId)?.short||custName(p.customerId)} ${p.name}`:'社内'};
+const deliveryCustomerId=p=>p?.deliveryCustomerId||p?.customerId||'';
+const billingCustomerId=p=>p?.billingCustomerId||deliveryCustomerId(p)||'';
+const deliveryCustomerName=p=>custName(deliveryCustomerId(p));
+const billingCustomerName=p=>custName(billingCustomerId(p));
+function nextCustomerCode(){
+ let max=0;
+ (db.customers||[]).forEach(c=>{
+   const id=String(c.id||'').toUpperCase();
+   if(/^[0-9A-F]{3}$/.test(id))max=Math.max(max,parseInt(id,16));
+ });
+ return (max+1).toString(16).toUpperCase().padStart(3,'0');
+}
+function customerOptions(selected=''){
+ return db.customers
+   .filter(c=>c.active!==false||c.id===selected)
+   .sort((a,b)=>String(a.id).localeCompare(String(b.id)))
+   .map(c=>`<option value="${c.id}" ${c.id===selected?'selected':''}>${c.id}　${c.name}</option>`).join('');
+}
+function escXml(v){
+ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function exportExcelXml(filename,sheetName,headers,rows){
+ const rowXml=r=>`<Row>${r.map(v=>`<Cell><Data ss:Type="${typeof v==='number'?'Number':'String'}">${escXml(v)}</Data></Cell>`).join('')}</Row>`;
+ const xml=`<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="${escXml(sheetName)}"><Table>${rowXml(headers)}${rows.map(rowXml).join('')}</Table></Worksheet>
+</Workbook>`;
+ const blob=new Blob(['\ufeff',xml],{type:'application/vnd.ms-excel;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=filename+'.xls';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+function filterCustomerSelect(inputId,selectId){
+ const q=($(`${inputId}`)?.value||'').trim().toLowerCase();
+ const sel=$(selectId);if(!sel)return;
+ const current=sel.value;
+ const list=db.customers.filter(c=>c.active!==false).filter(c=>{
+   const hay=[c.id,c.name,c.kana,c.address,c.phone].join(' ').toLowerCase();
+   return !q||hay.includes(q);
+ }).slice(0,150);
+ sel.innerHTML=list.map(c=>`<option value="${c.id}" ${c.id===current?'selected':''}>${c.id}　${c.name}</option>`).join('');
+ if(current&&list.some(c=>c.id===current))sel.value=current;
+}
+
+const projectLabel=id=>{const p=proj(id),cid=deliveryCustomerId(p);return p?`${p.id} ${cust(cid)?.short||custName(cid)} ${p.name}`:'社内'};
 const statusText=s=>({confirmed:'確定',pending:'ペンディング',provisional:'仮予定'})[s]||s,statusBadge=s=>s==='confirmed'?'bc':s==='pending'?'bp':'bv';
 const taskClass=t=>{
   const base=t.category==='社内案件'?'cat-internal':t.category==='その他'?'cat-other':'cat-client';
@@ -85,7 +154,7 @@ function normalizeClientText(v){
 }
 function taskCustomerId(t){
  const p=proj(t.projectId);
- return p?.customerId||'';
+ return deliveryCustomerId(p)||'';
 }
 function sameClientTask(a,b){
  const ca=taskCustomerId(a),cb=taskCustomerId(b);
@@ -136,10 +205,109 @@ const timeOptions=s=>{let o='';for(let h=0;h<24;h++)for(let m of [0,30]){const t
 const timeBands=(start,end)=>{const span=end-start,defs=[[0,5,'deep'],[5,8.5,'early'],[8.5,17.5,'normal'],[17.5,22,'night'],[22,24,'deep']];return defs.map(([a,b,c])=>{const x=Math.max(a,start),y=Math.min(b,end);if(y<=x)return'';return`<div class="timeband ${c}" style="left:${(x-start)/span*100}%;width:${(y-x)/span*100}%"></div>`}).join('')};
 function showView(name){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.view===name));document.querySelectorAll('.view').forEach(x=>x.classList.toggle('hidden',x.id!==name))}
 let modalSaveHandler=null;function openModal(title,html,onSave){$('modalTitle').textContent=title;$('modalBody').innerHTML=html;$('modal').classList.remove('hidden');modalSaveHandler=onSave;setTimeout(()=>$('modalBody').querySelector('input,select,textarea')?.focus(),40)}function closeModal(){$('modal').classList.add('hidden');modalSaveHandler=null}document.querySelectorAll('[data-modal-close]').forEach(x=>x.onclick=closeModal);$('modalCancel').onclick=closeModal;$('modalSave').onclick=()=>modalSaveHandler&&modalSaveHandler();
-function renderSummary(){const p=db.tasks.filter(t=>t.status==='pending').length,v=db.tasks.filter(t=>t.status==='provisional').length;$('summary').innerHTML=`<div class=card>進行案件<br><b>${db.projects.filter(p=>p.status!=='完了').length}</b></div><div class=card>社員<br><b>${db.employees.filter(x=>x.active).length}</b></div><div class=card>車両<br><b>${db.vehicles.filter(x=>x.active).length}</b></div><div class=card>顧客<br><b>${db.customers.filter(x=>x.active).length}</b></div><div class=card>確認待ち<br><b style="color:#ef4444">${p}</b></div><div class=card>仮予定<br><b style="color:#f59e0b">${v}</b></div>`}
-function renderDashboard(){const upcoming=db.projects.filter(p=>p.status!=='完了').sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,5);$('dashboard').innerHTML=`<div class=fieldtest-note><b>実機テスト版</b>：予定・勤怠・会社カレンダー・社員マスタは同じブラウザデータを参照しています。まず1週間、入力負担と見え方を確認してください。</div><div class=grid3><div class=panel><h3>予定の完成度</h3><b style="font-size:30px">${db.tasks.length?Math.round(db.tasks.filter(t=>t.status==='confirmed').length/db.tasks.length*100):100}%</b><p class=small>点滅している予定を前週までに消す。</p></div><div class=panel><h3>未確定</h3><p>ペンディング ${db.tasks.filter(t=>t.status==='pending').length}件 / 仮 ${db.tasks.filter(t=>t.status==='provisional').length}件</p></div><div class=panel><h3>共通マスタ</h3><p>社員 ${db.employees.length} / 車両 ${db.vehicles.length} / 顧客 ${db.customers.length}</p></div></div><div class=panel><h3>直近案件</h3><div class=tablewrap><table><tr><th>案件</th><th>顧客</th><th>納期</th><th>工数</th><th>主担当</th></tr>${upcoming.map(p=>`<tr><td>${p.id}<br><b>${p.name}</b></td><td>${custName(p.customerId)}</td><td>${p.deadline}</td><td>${p.hours}h</td><td>${empName(p.ownerId)}</td></tr>`).join('')}</table></div></div>`}
-function projectModal(p){const isEdit=!!p,p0=p||{id:'PJ-2026-'+String(49+db.projects.length).padStart(4,'0'),customerId:db.customers.find(x=>x.active)?.id||'',name:'',status:'受注',start:currentDay,deadline:addDays(currentDay,30),hours:80,people:2,ownerId:activeEmployees()[0]?.id||'',note:''};openModal(isEdit?'案件編集':'案件追加',`<div class=form><div><label>案件ID</label><input id=mpId value="${p0.id}"></div><div><label>状態</label><select id=mpStatus>${['情報','アプローチ','商談中','見積提出','受注','施工中','検収待ち','検収済','アフター','完了'].map(x=>`<option ${x===p0.status?'selected':''}>${x}</option>`).join('')}</select></div><div><label>顧客</label><select id=mpCustomer>${db.customers.filter(x=>x.active||x.id===p0.customerId).map(x=>`<option value="${x.id}" ${x.id===p0.customerId?'selected':''}>${x.name}</option>`).join('')}</select></div><div><label>案件名</label><input id=mpName value="${p0.name}"></div><div><label>施工予定日</label><input id=mpStart type=date value="${p0.start}"></div><div><label>納期</label><input id=mpDeadline type=date value="${p0.deadline}"></div><div><label>予定工数</label><input id=mpHours type=number value="${p0.hours}"></div><div><label>必要人員</label><input id=mpPeople type=number value="${p0.people}"></div><div><label>主担当</label><select id=mpOwner>${activeEmployees().map(e=>`<option value="${e.id}" ${e.id===p0.ownerId?'selected':''}>${e.name}</option>`).join('')}</select></div><div><label>備考</label><textarea id=mpNote>${p0.note||''}</textarea></div></div>`,()=>{const n={id:$('mpId').value.trim(),status:$('mpStatus').value,customerId:$('mpCustomer').value,name:$('mpName').value.trim(),start:$('mpStart').value,deadline:$('mpDeadline').value,hours:+$('mpHours').value||0,people:+$('mpPeople').value||1,ownerId:$('mpOwner').value,note:$('mpNote').value.trim()};if(!n.id||!n.name)return alert('案件IDと案件名は必須です');if(isEdit){const old=p.id,idx=db.projects.findIndex(x=>x.id===old);db.projects[idx]=n;db.tasks.forEach(t=>{if(t.projectId===old)t.projectId=n.id})}else{if(db.projects.some(x=>x.id===n.id))return alert('案件IDが重複しています');db.projects.push(n)}save();closeModal();renderAll();showView('projects')})}
-function renderProjects(){$('projects').innerHTML=`<div class=panel><div class=daynav><h3>案件台帳</h3><button id=addProject class=primary>＋案件追加</button></div>${db.projects.map(p=>`<div class=project-card><h4>${p.id}　${custName(p.customerId)}</h4><div><b>${p.name}</b> <span class="badge bblue">${p.status}</span></div><div class=small>${p.start} ～ ${p.deadline} / ${p.hours}h / ${p.people}名 / 主担当 ${empName(p.ownerId)}</div><div class=actions><button class=ghost data-pe="${p.id}">編集</button><button class=ghost data-po="${p.id}">この案件で予定</button><button class=danger data-pd="${p.id}">削除</button></div></div>`).join('')}</div>`;$('addProject').onclick=()=>projectModal(null);document.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>projectModal(proj(b.dataset.pe)));document.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{if(confirm('案件を削除しますか？')){db.projects=db.projects.filter(x=>x.id!==b.dataset.pd);save();renderAll();showView('projects')}});document.querySelectorAll('[data-po]').forEach(b=>b.onclick=()=>{currentDay=proj(b.dataset.po)?.start||currentDay;showView('day');renderDay();setTimeout(()=>taskModal(null,b.dataset.po),80)})}
+function renderSummary(){const p=db.tasks.filter(t=>t.status==='pending').length,v=db.tasks.filter(t=>t.status==='provisional').length;$('summary').innerHTML=`<div class=card>進行案件<br><b>${db.projects.filter(p=>!isProjectArchived(p)).length}</b></div><div class=card>社員<br><b>${db.employees.filter(x=>x.active).length}</b></div><div class=card>車両<br><b>${db.vehicles.filter(x=>x.active).length}</b></div><div class=card>顧客<br><b>${db.customers.filter(x=>x.active).length}</b></div><div class=card>確認待ち<br><b style="color:#ef4444">${p}</b></div><div class=card>仮予定<br><b style="color:#f59e0b">${v}</b></div>`}
+function renderDashboard(){const upcoming=db.projects.filter(p=>p.status!=='完了').sort((a,b)=>a.deadline.localeCompare(b.deadline)).slice(0,5);$('dashboard').innerHTML=`<div class=fieldtest-note><b>実機テスト版</b>：予定・勤怠・会社カレンダー・社員マスタは同じブラウザデータを参照しています。まず1週間、入力負担と見え方を確認してください。</div><div class=grid3><div class=panel><h3>予定の完成度</h3><b style="font-size:30px">${db.tasks.length?Math.round(db.tasks.filter(t=>t.status==='confirmed').length/db.tasks.length*100):100}%</b><p class=small>点滅している予定を前週までに消す。</p></div><div class=panel><h3>未確定</h3><p>ペンディング ${db.tasks.filter(t=>t.status==='pending').length}件 / 仮 ${db.tasks.filter(t=>t.status==='provisional').length}件</p></div><div class=panel><h3>共通マスタ</h3><p>社員 ${db.employees.length} / 車両 ${db.vehicles.length} / 顧客 ${db.customers.length}</p></div></div><div class=panel><h3>直近案件</h3><div class=tablewrap><table><tr><th>案件</th><th>顧客</th><th>納期</th><th>工数</th><th>主担当</th></tr>${upcoming.map(p=>`<tr><td>${p.id}<br><b>${p.name}</b></td><td>${deliveryCustomerName(p)}</td><td>${p.deadline}</td><td>${p.hours}h</td><td>${empName(p.ownerId)}</td></tr>`).join('')}</table></div></div>`}
+function projectModal(p){
+ const isEdit=!!p;
+ const firstCustomer=db.customers.find(x=>x.active)?.id||'';
+ const p0=p||{
+  id:'PJ-2026-'+String(49+db.projects.length).padStart(4,'0'),
+  customerId:firstCustomer,deliveryCustomerId:firstCustomer,billingCustomerId:firstCustomer,
+  name:'',status:'受注',start:currentDay,deadline:addDays(currentDay,30),
+  hours:80,people:2,ownerId:activeEmployees()[0]?.id||'',note:''
+ };
+ p0.deliveryCustomerId=p0.deliveryCustomerId||p0.customerId||firstCustomer;
+ p0.billingCustomerId=p0.billingCustomerId||p0.deliveryCustomerId;
+
+ openModal(isEdit?'案件編集':'案件追加',`
+  <div class=form>
+   <div><label>案件ID</label><input id=mpId value="${p0.id}"></div>
+   <div><label>状態</label><select id=mpStatus>${['情報','アプローチ','商談中','見積提出','受注','施工中','検収待ち','検収済','アフター','完了'].map(x=>`<option ${x===p0.status?'selected':''}>${x}</option>`).join('')}</select></div>
+
+   <div style="grid-column:1/-1"><label>納品先検索</label><input id=mpDeliverySearch placeholder="コード・顧客名・住所で検索"></div>
+   <div style="grid-column:1/-1"><label>納品先</label><select id=mpDeliveryCustomer>${customerOptions(p0.deliveryCustomerId)}</select></div>
+
+   <div style="grid-column:1/-1"><label class=checkline><input type=checkbox id=mpSameBilling ${p0.billingCustomerId===p0.deliveryCustomerId?'checked':''}> 支払先は納品先と同じ</label></div>
+   <div id=billingCustomerArea style="grid-column:1/-1;${p0.billingCustomerId===p0.deliveryCustomerId?'display:none':''}">
+    <label>支払先検索（代理店など）</label><input id=mpBillingSearch placeholder="コード・顧客名・住所で検索">
+    <label>支払先</label><select id=mpBillingCustomer>${customerOptions(p0.billingCustomerId)}</select>
+   </div>
+
+   <div><label>案件名</label><input id=mpName value="${p0.name}"></div>
+   <div><label>施工予定日</label><input id=mpStart type=date value="${p0.start||''}"></div>
+   <div><label>納期</label><input id=mpDeadline type=date value="${p0.deadline||''}"></div>
+   <div><label>予定工数</label><input id=mpHours type=number min=0 step=.5 value="${p0.hours}"></div>
+   <div><label>必要人員</label><input id=mpPeople type=number min=1 value="${p0.people}"></div>
+   <div><label>主担当</label><select id=mpOwner>${activeEmployees().map(e=>`<option value="${e.id}" ${e.id===p0.ownerId?'selected':''}>${e.name}</option>`).join('')}</select></div>
+   <div style="grid-column:1/-1"><label>備考</label><textarea id=mpNote>${p0.note||''}</textarea></div>
+  </div>`,()=>{
+   const delivery=$('mpDeliveryCustomer').value;
+   const billing=$('mpSameBilling').checked?delivery:$('mpBillingCustomer').value;
+   const n={
+    ...p0,id:$('mpId').value.trim(),status:$('mpStatus').value,
+    customerId:delivery,deliveryCustomerId:delivery,billingCustomerId:billing,
+    name:$('mpName').value.trim(),start:$('mpStart').value,deadline:$('mpDeadline').value,
+    hours:+$('mpHours').value||0,people:+$('mpPeople').value||1,
+    ownerId:$('mpOwner').value,note:$('mpNote').value.trim()
+   };
+   if(!n.id||!n.name)return alert('案件IDと案件名は必須です');
+   if(!n.deliveryCustomerId)return alert('納品先を選択してください');
+   if(!n.billingCustomerId)return alert('支払先を選択してください');
+   if(isEdit){
+    const old=p.id,idx=db.projects.findIndex(x=>x.id===old);db.projects[idx]=n;
+    db.tasks.forEach(t=>{if(t.projectId===old)t.projectId=n.id});
+   }else{
+    if(db.projects.some(x=>x.id===n.id))return alert('案件IDが重複しています');
+    db.projects.push(n);
+   }
+   save();closeModal();renderAll();showView('projects');
+  });
+
+ $('mpDeliverySearch').oninput=()=>filterCustomerSelect('mpDeliverySearch','mpDeliveryCustomer');
+ $('mpBillingSearch').oninput=()=>filterCustomerSelect('mpBillingSearch','mpBillingCustomer');
+ $('mpSameBilling').onchange=()=>{
+   $('billingCustomerArea').style.display=$('mpSameBilling').checked?'none':'block';
+   if($('mpSameBilling').checked)$('mpBillingCustomer').value=$('mpDeliveryCustomer').value;
+ };
+ $('mpDeliveryCustomer').onchange=()=>{
+   if($('mpSameBilling').checked)$('mpBillingCustomer').value=$('mpDeliveryCustomer').value;
+ };
+}
+function renderProjects(){
+ const active=db.projects.filter(p=>!isProjectArchived(p));
+ const archived=db.projects.filter(isProjectArchived);
+ const card=p=>`<div class=project-card>
+  <h4>${p.id}　${p.name}</h4>
+  <div><span class="badge bblue">${p.status}</span></div>
+  <div class=small>納品先：${deliveryCustomerId(p)} ${deliveryCustomerName(p)||'-'}</div>
+  <div class=small>支払先：${billingCustomerId(p)} ${billingCustomerName(p)||'-'}</div>
+  <div class=small>施工予定日 ${p.start||'未定'} / 納期 ${p.deadline||'-'} / ${p.hours}h / ${p.people}名 / 主担当 ${empName(p.ownerId)}</div>
+  <div class=actions><button class=ghost data-pe="${p.id}">編集</button>${!isProjectArchived(p)?`<button class=ghost data-po="${p.id}">この案件で予定</button>`:''}<button class=danger data-pd="${p.id}">削除</button></div>
+ </div>`;
+
+ $('projects').innerHTML=`<div class=panel>
+  <div class=daynav><div><h3>案件台帳</h3><p class=small>納品先と支払先を別管理できます。</p></div>
+   <div class=actions><button id=projectExcel class=ghost>Excel出力</button><button id=addProject class=primary>＋案件追加</button></div>
+  </div>
+  ${active.length?active.map(card).join(''):'<div class=small>進行中の案件はありません。</div>'}
+ </div>
+ <details class="panel archive-panel"><summary><b>検収済・アーカイブ案件</b> (${archived.length})</summary>
+  <div>${archived.length?archived.map(card).join(''):'<div class=small>アーカイブはありません。</div>'}</div>
+ </details>`;
+
+ $('projectExcel').onclick=()=>{
+  const rows=db.projects.map(p=>[
+   p.id,p.status,deliveryCustomerId(p),deliveryCustomerName(p),billingCustomerId(p),billingCustomerName(p),
+   p.name,p.start||'',p.deadline||'',+p.hours||0,+p.people||0,empName(p.ownerId),p.note||''
+  ]);
+  exportExcelXml('案件一覧_'+new Date().toISOString().slice(0,10),'案件一覧',
+   ['案件ID','ステータス','納品先コード','納品先','支払先コード','支払先','案件名','施工予定日','納期','予定工数h','必要人員','主担当','備考'],rows);
+ };
+ $('addProject').onclick=()=>projectModal(null);
+ document.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>projectModal(proj(b.dataset.pe)));
+ document.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{if(confirm('案件を削除しますか？')){db.projects=db.projects.filter(x=>x.id!==b.dataset.pd);save();renderAll();showView('projects')}});
+ document.querySelectorAll('[data-po]').forEach(b=>b.onclick=()=>{currentDay=proj(b.dataset.po)?.start||currentDay;showView('day');renderDay();setTimeout(()=>taskModal(null,b.dataset.po),80)});
+}
 function renderYear(){const ms=[7,8,9,10,11,12];$('year').innerHTML=`<div class=grid2><div class=panel><h3>年間案件</h3><div class=tablewrap><table><tr><th>案件</th>${ms.map(m=>`<th>${m}月</th>`).join('')}<th>納期</th></tr>${db.projects.map(p=>`<tr><td><b>${p.id}</b><br>${p.name}</td>${ms.map(m=>{const active=new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline);return`<td>${active?`<div class="pill confirmed">${p.status}<br>${p.hours}h/${p.people}名</div>`:''}${db.tasks.filter(t=>t.projectId===p.id&&+t.date.slice(5,7)===m).map(t=>`<div class="pill ${t.status}">${t.id} ${t.name}</div>`).join('')}</td>`}).join('')}<td>${p.deadline}</td></tr>`).join('')}</table></div></div><div class=panel><h3>年間労務</h3><div class=tablewrap><table><tr><th>社員</th><th>休日</th><th>有休</th><th>就労</th><th>時間外</th><th>36協定</th></tr>${db.attendanceSummary.map(x=>`<tr><td>${empName(x.employeeId)}</td><td>${x.holidaysTaken}/${x.annualHolidays}</td><td>${x.paidLeaveTaken}</td><td>${x.annualWork}h</td><td>${x.overtime}h</td><td>${x.agreementPct}%</td></tr>`).join('')}</table></div></div></div>`}
 function renderQuarter(){$('quarter').innerHTML=[['Q3 7-9月',[7,8,9]],['Q4 10-12月',[10,11,12]]].map(([n,ms])=>`<div class=panel><h3>${n}</h3><div class=tablewrap><table><tr><th>案件</th><th>期間</th><th>工数</th><th>人員</th><th>主担当</th><th>未確定</th></tr>${db.projects.filter(p=>ms.some(m=>new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline))).map(p=>`<tr><td>${p.id}<br><b>${p.name}</b></td><td>${p.start}<br>～${p.deadline}</td><td>${p.hours}h</td><td>${p.people}名</td><td>${empName(p.ownerId)}</td><td>${db.tasks.filter(t=>t.projectId===p.id&&t.status!=='confirmed').length}</td></tr>`).join('')}</table></div></div>`).join('')}
 function renderMonth(){const[y,m]=currentMonth.split('-').map(Number),last=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay();let cells='';for(let i=0;i<first;i++)cells+='<div></div>';for(let d=1;d<=last;d++){const date=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,hs=db.holidays.filter(h=>h.date===date),ts=db.tasks.filter(t=>t.date===date),leave=db.attendance.filter(a=>a.date===date&&a.type!=='出勤'),cls=hs.some(h=>h.type==='statutory')?'holiday-bg holiday-statutory-cell':hs.some(h=>h.type==='company')?'company-bg holiday-company-cell':'';cells+=`<div class="daycell ${cls}" data-date="${date}"><div class=daynum>${d}</div>${hs.map(h=>`<div class="pill holiday-mark ${h.type==='statutory'?'holiday statutory-mark':'companyHoliday company-mark'}">${h.type==='statutory'?'法定休日':'所定休日'}</div>`).join('')}${leave.map(a=>`<div class="pill companyHoliday">${empName(a.employeeId)} ${a.type}</div>`).join('')}${ts.map(t=>`<div class="pill ${t.status}">${t.id} ${t.name}<br>${empName(t.employeeId)}</div>`).join('')}</div>`}$('month').innerHTML=`<div class=panel><div class=daynav><button id=mPrev class=ghost>←前月</button><div class=datebox>${y}年${m}月</div><button id=mNext class=ghost>翌月→</button></div><div class=calendar-scroll><div class=calendar-head>${['日','月','火','水','木','金','土'].map(x=>`<div>${x}</div>`).join('')}</div><div class=calendar>${cells}</div></div></div>`;$('mPrev').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()-1);currentMonth=d.toISOString().slice(0,7);renderMonth()};$('mNext').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()+1);currentMonth=d.toISOString().slice(0,7);renderMonth()};document.querySelectorAll('[data-date]').forEach(c=>c.onclick=()=>{currentDay=c.dataset.date;showView('day');renderDay()})}
@@ -404,10 +572,21 @@ function bindOpenPending(){
 }
 function renderPending(){
  $('pending').innerHTML=`<div class=panel>
-  <div class=daynav><div><h3>ペンディング / 未割当一覧</h3><p class=small>受注・対応対象だが、まだ日程へはめ込めていないタスクをここへ集約します。</p></div>
-  <button id=pendingAdd class=primary>＋タスク</button></div>
+  <div class=daynav><div><h3>ペンディング / 未割当一覧</h3><p class=small>日程未確定でも予定工数だけ保持できます。</p></div>
+   <div class=actions><button id=pendingExcel class=ghost>Excel出力</button><button id=pendingAdd class=primary>＋タスク</button></div>
+  </div>
   ${pendingListHtml()}
  </div>`;
+ $('pendingExcel').onclick=()=>{
+  const rows=pendingTasks().map(t=>{
+   const p=proj(t.projectId);
+   return [t.id,t.category||'',t.name||'',t.projectId||'',deliveryCustomerId(p),deliveryCustomerName(p),
+    billingCustomerId(p),billingCustomerName(p),t.clientSite||'',+t.plannedHours||0,empName(t.employeeId),
+    t.date||'未定',t.start||'未定',statusText(t.status)];
+  });
+  exportExcelXml('ペンディング一覧_'+new Date().toISOString().slice(0,10),'ペンディング一覧',
+   ['タスクID','区分','内容','案件ID','納品先コード','納品先','支払先コード','支払先','客先/所在地','予定工数h','主担当','日付','開始','状態'],rows);
+ };
  $('pendingAdd').onclick=()=>taskModal(null);
  bindPendingButtons();
 }
@@ -590,8 +769,90 @@ function renderDay(){
  $('aPrev').onclick=()=>{currentDay=addDays(currentDay,-1);syncMonthToDay();renderAttendance()};
  $('aNext').onclick=()=>{currentDay=addDays(currentDay,1);syncMonthToDay();renderAttendance()};
 }
-function masterModal(type,x){const edit=!!x;if(type==='employees'){const r=x||{id:'EMP-'+String(db.employees.length+1).padStart(3,'0'),name:'',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:db.employees.length+1};openModal(edit?'社員編集':'社員追加',`<div class=form><div><label>社員ID</label><input id=mmId value="${r.id}"></div><div><label>氏名</label><input id=mmName value="${r.name}"></div><div><label>役職</label><input id=mmRole value="${r.role}"></div><div><label>表示順</label><input id=mmOrder type=number value="${r.order}"></div><div><label>標準開始</label><input id=mmStart type=time value="${r.start}"></div><div><label>標準終了</label><input id=mmEnd type=time value="${r.end}"></div></div>`,()=>{const n={...r,id:$('mmId').value.trim(),name:$('mmName').value.trim(),role:$('mmRole').value.trim(),order:+$('mmOrder').value||99,start:$('mmStart').value,end:$('mmEnd').value};if(edit){const old=r.id;db.employees[db.employees.findIndex(a=>a.id===old)]=n;db.tasks.forEach(t=>{if(t.employeeId===old)t.employeeId=n.id});db.projects.forEach(p=>{if(p.ownerId===old)p.ownerId=n.id})}else db.employees.push(n);save();closeModal();renderAll();showView('masters')})}else if(type==='vehicles'){const r=x||{id:'CAR-'+String(db.vehicles.length+1).padStart(3,'0'),name:'',type:'',number:'',active:true,note:''};openModal(edit?'車両編集':'車両追加',`<div class=form><div><label>車両ID</label><input id=mmId value="${r.id}"></div><div><label>呼称</label><input id=mmName value="${r.name}"></div><div><label>車種</label><input id=mmType value="${r.type}"></div><div><label>ナンバー</label><input id=mmNumber value="${r.number}"></div><div><label>備考</label><textarea id=mmNote>${r.note||''}</textarea></div></div>`,()=>{const n={...r,id:$('mmId').value.trim(),name:$('mmName').value.trim(),type:$('mmType').value.trim(),number:$('mmNumber').value.trim(),note:$('mmNote').value.trim()};if(edit){const old=r.id;db.vehicles[db.vehicles.findIndex(a=>a.id===old)]=n;db.tasks.forEach(t=>{if(t.vehicleId===old)t.vehicleId=n.id})}else db.vehicles.push(n);save();closeModal();renderAll();showView('masters')})}else{const r=x||{id:'CUS-'+String(db.customers.length+1).padStart(3,'0'),name:'',short:'',address:'',contact:'',phone:'',active:true};openModal(edit?'顧客編集':'顧客追加',`<div class=form><div><label>顧客ID</label><input id=mmId value="${r.id}"></div><div><label>会社名</label><input id=mmName value="${r.name}"></div><div><label>略称</label><input id=mmShort value="${r.short}"></div><div><label>所在地</label><input id=mmAddress value="${r.address}"></div><div><label>担当者</label><input id=mmContact value="${r.contact}"></div><div><label>電話</label><input id=mmPhone value="${r.phone||''}"></div></div>`,()=>{const n={...r,id:$('mmId').value.trim(),name:$('mmName').value.trim(),short:$('mmShort').value.trim(),address:$('mmAddress').value.trim(),contact:$('mmContact').value.trim(),phone:$('mmPhone').value.trim()};if(edit){const old=r.id;db.customers[db.customers.findIndex(a=>a.id===old)]=n;db.projects.forEach(p=>{if(p.customerId===old)p.customerId=n.id})}else db.customers.push(n);save();closeModal();renderAll();showView('masters')})}}
-function renderMasters(){const list=masterType==='employees'?db.employees:masterType==='vehicles'?db.vehicles:db.customers;$('masters').innerHTML=`<div class=panel><div class=master-tabs><button class="master-tab ${masterType==='employees'?'active':''}" data-mt=employees>社員</button><button class="master-tab ${masterType==='vehicles'?'active':''}" data-mt=vehicles>車両</button><button class="master-tab ${masterType==='customers'?'active':''}" data-mt=customers>顧客</button></div><div class=daynav><h3>${masterType==='employees'?'社員':masterType==='vehicles'?'車両':'顧客'}マスタ</h3><button id=mAdd class=primary>＋追加</button></div>${list.map(x=>`<div class=master-card><h4>${x.id} ${x.name} ${x.active?'':'[無効]'}</h4><div class=small>${masterType==='employees'?`${x.role} / ${x.start}-${x.end}`:masterType==='vehicles'?`${x.type} / ${x.number}`:`${x.short} / ${x.address} / ${x.contact}`}</div><div class=actions><button class=ghost data-me="${x.id}">編集</button><button class=ghost data-ma="${x.id}">${x.active?'無効化':'有効化'}</button></div></div>`).join('')}</div>`;document.querySelectorAll('[data-mt]').forEach(b=>b.onclick=()=>{masterType=b.dataset.mt;renderMasters()});$('mAdd').onclick=()=>masterModal(masterType,null);document.querySelectorAll('[data-me]').forEach(b=>b.onclick=()=>masterModal(masterType,(masterType==='employees'?emp:masterType==='vehicles'?veh:cust)(b.dataset.me)));document.querySelectorAll('[data-ma]').forEach(b=>b.onclick=()=>{const x=(masterType==='employees'?emp:masterType==='vehicles'?veh:cust)(b.dataset.ma);x.active=!x.active;save();renderAll();showView('masters')})}
+function masterModal(type,x){
+ const edit=!!x;
+ if(type==='employees'){
+  const r=x||{id:'EMP-'+String(db.employees.length+1).padStart(3,'0'),name:'',role:'社員',active:true,attendance:true,start:'08:00',end:'17:00',order:db.employees.length+1};
+  openModal(edit?'社員編集':'社員追加',`<div class=form><div><label>社員ID</label><input id=mmId value="${r.id}"></div><div><label>氏名</label><input id=mmName value="${r.name}"></div><div><label>役職</label><input id=mmRole value="${r.role}"></div><div><label>表示順</label><input id=mmOrder type=number value="${r.order}"></div><div><label>標準開始</label><input id=mmStart type=time value="${r.start}"></div><div><label>標準終了</label><input id=mmEnd type=time value="${r.end}"></div></div>`,()=>{
+   const n={...r,id:$('mmId').value.trim(),name:$('mmName').value.trim(),role:$('mmRole').value.trim(),order:+$('mmOrder').value||99,start:$('mmStart').value,end:$('mmEnd').value};
+   if(edit){const old=r.id;db.employees[db.employees.findIndex(a=>a.id===old)]=n;db.tasks.forEach(t=>{if(t.employeeId===old)t.employeeId=n.id});db.projects.forEach(p=>{if(p.ownerId===old)p.ownerId=n.id})}else db.employees.push(n);
+   save();closeModal();renderAll();showView('masters');
+  });
+ }else if(type==='vehicles'){
+  const r=x||{id:'CAR-'+String(db.vehicles.length+1).padStart(3,'0'),name:'',type:'',number:'',active:true,note:''};
+  openModal(edit?'車両編集':'車両追加',`<div class=form><div><label>車両ID</label><input id=mmId value="${r.id}"></div><div><label>呼称</label><input id=mmName value="${r.name}"></div><div><label>車種</label><input id=mmType value="${r.type}"></div><div><label>ナンバー</label><input id=mmNumber value="${r.number}"></div><div><label>備考</label><textarea id=mmNote>${r.note||''}</textarea></div></div>`,()=>{
+   const n={...r,id:$('mmId').value.trim(),name:$('mmName').value.trim(),type:$('mmType').value.trim(),number:$('mmNumber').value.trim(),note:$('mmNote').value.trim()};
+   if(edit){const old=r.id;db.vehicles[db.vehicles.findIndex(a=>a.id===old)]=n;db.tasks.forEach(t=>{if(t.vehicleId===old)t.vehicleId=n.id})}else db.vehicles.push(n);
+   save();closeModal();renderAll();showView('masters');
+  });
+ }else{
+  const r=x||{id:nextCustomerCode(),name:'',kana:'',postal:'',address1:'',address2:'',address:'',contact:'',phone:'',fax:'',short:'',active:true,source:'portal'};
+  openModal(edit?'顧客編集':'顧客追加',`<div class=form>
+   <div><label>顧客コード</label><input id=mmId value="${r.id}" readonly></div>
+   <div><label>納入先名</label><input id=mmName value="${r.name||''}"></div>
+   <div><label>フリガナ</label><input id=mmKana value="${r.kana||''}"></div>
+   <div><label>郵便番号</label><input id=mmPostal value="${r.postal||''}"></div>
+   <div><label>住所1</label><input id=mmAddress1 value="${r.address1||r.address||''}"></div>
+   <div><label>住所2</label><input id=mmAddress2 value="${r.address2||''}"></div>
+   <div><label>TEL</label><input id=mmPhone value="${r.phone||''}"></div>
+   <div><label>FAX</label><input id=mmFax value="${r.fax||''}"></div>
+   <div><label>担当者</label><input id=mmContact value="${r.contact||''}"></div>
+  </div>`,()=>{
+   const address1=$('mmAddress1').value.trim(),address2=$('mmAddress2').value.trim();
+   const n={...r,id:r.id,name:$('mmName').value.trim(),short:$('mmName').value.trim(),kana:$('mmKana').value.trim(),
+    postal:$('mmPostal').value.trim(),address1,address2,address:[address1,address2].filter(Boolean).join(' '),
+    contact:$('mmContact').value.trim(),phone:$('mmPhone').value.trim(),fax:$('mmFax').value.trim(),source:r.source||'portal'};
+   if(!n.name)return alert('納入先名を入力してください');
+   if(edit){
+    const old=r.id;db.customers[db.customers.findIndex(a=>a.id===old)]=n;
+    db.projects.forEach(p=>{
+     if(p.customerId===old)p.customerId=n.id;
+     if(p.deliveryCustomerId===old)p.deliveryCustomerId=n.id;
+     if(p.billingCustomerId===old)p.billingCustomerId=n.id;
+    });
+   }else{
+    if(db.customers.some(c=>c.id===n.id))return alert('顧客コードが重複しています');
+    db.customers.push(n);
+   }
+   save();closeModal();renderAll();showView('masters');
+  });
+ }
+}
+function renderMasters(){
+ const isCustomers=masterType==='customers';
+ let list=masterType==='employees'?db.employees:masterType==='vehicles'?db.vehicles:db.customers;
+ const q=(window.__customerSearch||'').trim().toLowerCase();
+ if(isCustomers&&q){
+  list=list.filter(c=>[c.id,c.name,c.kana,c.postal,c.address,c.phone].join(' ').toLowerCase().includes(q));
+ }
+ const total=list.length;
+ const visible=isCustomers?list.slice(0,150):list;
+
+ $('masters').innerHTML=`<div class=panel>
+  <div class=master-tabs><button class="master-tab ${masterType==='employees'?'active':''}" data-mt=employees>社員</button><button class="master-tab ${masterType==='vehicles'?'active':''}" data-mt=vehicles>車両</button><button class="master-tab ${masterType==='customers'?'active':''}" data-mt=customers>顧客</button></div>
+  <div class=daynav><h3>${masterType==='employees'?'社員':masterType==='vehicles'?'車両':'顧客'}マスタ</h3>
+   <div class=actions>${isCustomers?'<button id=customerExcel class=ghost>Excel出力</button>':''}<button id=mAdd class=primary>＋追加</button></div>
+  </div>
+  ${isCustomers?`<div class=master-search><input id=customerSearch placeholder="顧客コード・名称・フリガナ・住所・TELで検索" value="${window.__customerSearch||''}"><span class=small>${total}件${total>150?'（先頭150件表示）':''}</span></div>`:''}
+  ${visible.map(x=>`<div class=master-card><h4>${x.id} ${x.name} ${x.active?'':'[無効]'}</h4>
+   <div class=small>${masterType==='employees'?`${x.role} / ${x.start}-${x.end}`:masterType==='vehicles'?`${x.type} / ${x.number}`:`${x.kana||''} / ${x.postal||''} ${x.address||''} / TEL ${x.phone||'-'} / FAX ${x.fax||'-'}`}</div>
+   <div class=actions><button class=ghost data-me="${x.id}">編集</button><button class=ghost data-ma="${x.id}">${x.active?'無効化':'有効化'}</button></div>
+  </div>`).join('')}
+ </div>`;
+
+ document.querySelectorAll('[data-mt]').forEach(b=>b.onclick=()=>{masterType=b.dataset.mt;window.__customerSearch='';renderMasters()});
+ $('mAdd').onclick=()=>masterModal(masterType,null);
+ if(isCustomers){
+  $('customerSearch').oninput=e=>{window.__customerSearch=e.target.value;renderMasters();setTimeout(()=>$('customerSearch')?.focus(),0)};
+  $('customerExcel').onclick=()=>{
+   const rows=db.customers.map(c=>[c.id,c.name,c.kana||'',c.postal||'',c.address1||'',c.address2||'',c.phone||'',c.fax||'',c.contact||'',c.source||'portal',c.active!==false?'有効':'無効']);
+   exportExcelXml('顧客マスタ_'+new Date().toISOString().slice(0,10),'顧客マスタ',
+    ['顧客コード','納入先名','フリガナ','郵便番号','住所1','住所2','TEL','FAX','担当者','登録元','状態'],rows);
+  };
+ }
+ document.querySelectorAll('[data-me]').forEach(b=>b.onclick=()=>masterModal(masterType,(masterType==='employees'?emp:masterType==='vehicles'?veh:cust)(b.dataset.me)));
+ document.querySelectorAll('[data-ma]').forEach(b=>b.onclick=()=>{const x=(masterType==='employees'?emp:masterType==='vehicles'?veh:cust)(b.dataset.ma);x.active=!x.active;save();renderAll();showView('masters')});
+}
 function holidayModal(h){
  const r=h||{id:'H'+Date.now(),date:currentDay,type:'company',name:'所定休日'};
  openModal(h?'休日編集':'休日追加',`<div class=form>

@@ -282,3 +282,14 @@ textarea{min-height:68px}
   font-size:9px;
   color:#94a3b8;
 }
+
+/* v2.0.7 customer/project additions */
+.master-search{display:flex;gap:10px;align-items:center;margin:10px 0 14px;flex-wrap:wrap}
+.master-search input{flex:1;min-width:240px}
+.checkline{display:flex;gap:8px;align-items:center;font-weight:700}
+.checkline input{width:auto}
+#billingCustomerArea{display:grid;grid-template-columns:1fr;gap:6px}
+#billingCustomerArea input,#billingCustomerArea select{width:100%}
+@media(max-width:700px){
+ .master-search input{min-width:0;width:100%}
+}
