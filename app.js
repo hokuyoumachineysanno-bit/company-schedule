@@ -631,12 +631,15 @@ function hideDragTip(){const t=document.getElementById('dayDragTip');if(t)t.styl
 function startDayBarDrag(el,ev,mode){
  const task=db.tasks.find(t=>t.id===el.dataset.bar);
  if(!task||task.status==='pending'||!task.start)return false;
- const gantt=el.closest('.gantt');if(!gantt)return false;
- const rect=gantt.getBoundingClientRect();
+ const track=el.closest('.track');if(!track)return false;
+ const rect=track.getBoundingClientRect();
+ const rd=rangeDef();
+ const rangeStartMin=rd.s*60,rangeEndMin=rd.e*60,rangeSpanMin=(rd.e-rd.s)*60;
  const startMin=Math.round(timeNum(task.start)*60/30)*30;
  const slotHours=+(task.slotHours??task.plannedHours)||.5;
  dayBarDrag={
   el,task,mode,rect,startX:ev.clientX,startY:ev.clientY,
+  rangeStartMin,rangeEndMin,rangeSpanMin,
   startMin,slotHours,newStartMin:startMin,newSlotHours:slotHours,moved:false
  };
  el.classList.add('dragging');document.body.classList.add('bar-drag-active');
@@ -647,16 +650,16 @@ function startDayBarDrag(el,ev,mode){
 function moveDayBarDrag(ev){
  const d=dayBarDrag;if(!d)return;
  ev.preventDefault();
- const deltaMin=Math.round((((ev.clientX-d.startX)/d.rect.width)*1440)/30)*30;
+ const deltaMin=Math.round((((ev.clientX-d.startX)/d.rect.width)*d.rangeSpanMin)/30)*30;
  if(d.mode==='move'){
   const duration=Math.round(d.slotHours*60);
   d.newStartMin=Math.max(0,Math.min(1440-duration,d.startMin+deltaMin));
-  d.el.style.left=`${d.newStartMin/1440*100}%`;
+  d.el.style.left=`${(d.newStartMin-d.rangeStartMin)/d.rangeSpanMin*100}%`;
  }else{
   let dur=Math.max(30,Math.round(d.slotHours*60)+deltaMin);
   dur=Math.min(1440-d.startMin,dur);
   d.newSlotHours=dur/60;
-  d.el.style.width=`${dur/1440*100}%`;
+  d.el.style.width=`${dur/d.rangeSpanMin*100}%`;
  }
  if(Math.abs(deltaMin)>=30)d.moved=true;
  showDragTip(dayBarRangeText(d.newStartMin,d.newSlotHours),ev.clientX,ev.clientY);
