@@ -293,3 +293,28 @@ textarea{min-height:68px}
 @media(max-width:700px){
  .master-search input{min-width:0;width:100%}
 }
+
+/* v2.0.8 案件/タスク折衷設計 */
+.bar.urgent,
+.bar.cat-client.urgent,
+.bar.cat-internal.urgent,
+.bar.cat-other.urgent,
+.bar.is-provisional.urgent{
+ background:#dc2626 !important;
+ color:#fff !important;
+ border:1px solid #991b1b !important;
+ box-shadow:0 1px 3px rgba(127,29,29,.28) !important;
+ animation:none !important;
+}
+.bar.urgent.team-stack-top,.bar.urgent.team-stack-middle,.bar.urgent.team-stack-bottom{background:#dc2626 !important}
+.site-row{display:flex;gap:7px;align-items:center}
+.site-row input{flex:1}
+.site-row button{white-space:nowrap}
+.effort-meter{display:flex;gap:12px;align-items:center;margin:8px 0;padding:7px 9px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0;font-size:12px}
+.effort-meter span{color:#64748b}
+.temp-badge{margin-left:6px;background:#fef3c7;color:#92400e}
+#deliveryMasterArea,#deliveryTempArea,#billingChoice,#billingMasterArea,#billingTempArea{display:grid;gap:6px}
+@media(max-width:700px){
+ .site-row{align-items:stretch;flex-direction:column}
+ .site-row button{width:100%}
+}
