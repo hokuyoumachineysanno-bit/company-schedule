@@ -318,3 +318,14 @@ textarea{min-height:68px}
  .site-row{align-items:stretch;flex-direction:column}
  .site-row button{width:100%}
 }
+
+/* v2.0.9 補助人員別の車両割当 */
+.helper-vehicle-area{display:grid;gap:8px;margin-top:4px}
+.helper-vehicle-row{display:grid;grid-template-columns:minmax(90px,140px) 1fr;gap:10px;align-items:center;padding:8px 10px;border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc}
+.helper-vehicle-row select{width:100%}
+@media(max-width:700px){
+ .helper-vehicle-row{grid-template-columns:1fr}
+}
+
+/* v2.0.10 予定工数/予定枠 */
+.time-shift-controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}

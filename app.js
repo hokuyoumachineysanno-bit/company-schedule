@@ -21,6 +21,8 @@ mergeImportedCustomers();
 db.tasks.forEach(t=>{
  if(t.name==='未記入')t.name='';
  if(t.plannedHours!=null)t.plannedHours=Math.max(.5,Math.round((+t.plannedHours||0)*2)/2);
+ if(!t.helperVehicles||typeof t.helperVehicles!=='object')t.helperVehicles={};
+ if(t.slotHours==null)t.slotHours=+t.plannedHours||0;
 });
 db.projects.forEach(p=>{
  if(!p.deliveryCustomerId)p.deliveryCustomerId=p.customerId||'';
@@ -102,6 +104,23 @@ const taskSiteDefault=projectId=>{
  const n=deliveryCustomerName(p),a=deliveryCustomerAddress(p);
  return [n,a].filter(Boolean).join(' / ');
 };
+const taskVehicleForEmployee=(t,employeeId)=>{
+ if(!t||!employeeId)return '';
+ if(employeeId===t.employeeId)return t.vehicleId||'';
+ const assigned=t.helperVehicles?.[employeeId];
+ if(assigned==='__MAIN__')return t.vehicleId||'';
+ return assigned||'';
+};
+const taskVehicleLabelForEmployee=(t,employeeId)=>{
+ const id=taskVehicleForEmployee(t,employeeId);
+ return id?vehName(id):'';
+};
+const taskDeliveryName=t=>{
+ const p=proj(t?.projectId);
+ if(p)return deliveryCustomerName(p)||'';
+ const s=String(t?.clientSite||'').trim();
+ return s?s.split('/')[0].trim():'';
+};
 function nextCustomerCode(){
  let max=0;
  (db.customers||[]).forEach(c=>{
@@ -162,7 +181,7 @@ function calcEndTime(start,plannedHours){
  const h=Math.floor(mins/60),m=mins%60;
  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
 }
-function taskEnd(t){return t.end||calcEndTime(t.start,t.plannedHours)}
+function taskEnd(t){return t.end||calcEndTime(t.start,(t.slotHours??t.plannedHours))}
 db.tasks.forEach(t=>{
  if(t.status==='unassigned')t.status='pending';
  if(t.plannedHours==null){
@@ -394,12 +413,19 @@ function taskModal(t,presetProject=''){
  const t0=t||{
    id:nextTaskId(),date:pp?.start||currentDay,name:'',category:'客先案件',
    projectId:presetProject,employeeId:pp?.ownerId||activeEmployees()[0]?.id||'',
-   vehicleId:'',start:'08:30',end:'',plannedHours:remaining>0?remaining:2,status:'confirmed',
+   vehicleId:'',helperVehicles:{},start:'08:30',end:'',plannedHours:remaining>0?remaining:2,slotHours:remaining>0?remaining:2,status:'confirmed',
    urgent:false,passengerIds:[],history:[],clientSite:presetProject?taskSiteDefault(presetProject):''
  };
+ if(!t0.helperVehicles||typeof t0.helperVehicles!=='object')t0.helperVehicles={};
  if(t0.name==='未記入')t0.name='';
  if(!t0.clientSite&&t0.projectId&&t0.category==='客先案件')t0.clientSite=taskSiteDefault(t0.projectId);
  const cats=['客先案件','社内案件','その他'];
+ const vehicleOpts=(selected='',helper=false)=>{
+   let opts=helper?`<option value="__MAIN__" ${selected==='__MAIN__'?'selected':''}>主担当と同じ車両</option>`:'';
+   opts+=`<option value="" ${!selected?'selected':''}>車両なし</option>`;
+   opts+=db.vehicles.filter(v=>v.active||v.id===selected).map(v=>`<option value="${v.id}" ${v.id===selected?'selected':''}>${v.name}</option>`).join('');
+   return opts;
+ };
 
  openModal(edit?'タスク編集':'タスク追加',`
   <div class=task-kind>${cats.map(k=>`<button type=button class="kindbtn ${t0.category===k?'active':''}" data-kind="${k}">${k}</button>`).join('')}</div>
@@ -416,14 +442,30 @@ function taskModal(t,presetProject=''){
    </div>
 
    <div><label>予定工数</label><input id=mtHours type=number min=.5 step=.5 value="${Math.max(.5,Math.round((+t0.plannedHours||2)*2)/2)}"> <span class=small>h</span></div>
+   <div><label>予定枠（時間バー）</label><input id=mtSlotHours type=number min=.5 step=.5 value="${Math.max(.5,Math.round((+(t0.slotHours??t0.plannedHours)||2)*2)/2)}"> <span class=small>h</span></div>
    <div><label>開始</label><input id=mtStart type=time step=1800 value="${t0.start||''}"></div>
    <div><label>終了</label><input id=mtEnd type=time value="${taskEnd(t0)||''}" readonly></div>
-   <div class=time-shift-controls style="grid-column:1/-1"><button type=button id=shiftMinus class=ghost>−30分</button><button type=button id=shiftPlus class=ghost>＋30分</button><span class=small>時間は30分単位です。</span></div>
+   <div class=time-shift-controls style="grid-column:1/-1">
+    <button type=button id=slotFromHours class=ghost>予定工数＝予定枠</button>
+    <button type=button id=slotMinus class=ghost>枠 −30分</button>
+    <button type=button id=slotPlus class=ghost>枠 ＋30分</button>
+    <button type=button id=shiftMinus class=ghost>開始 −30分</button>
+    <button type=button id=shiftPlus class=ghost>開始 ＋30分</button>
+    <span class=small>予定工数は案件工数集計、予定枠は日フォーカスの時間バーに使います。</span>
+   </div>
 
    <div><label>主担当</label><select id=mtEmployee>${activeEmployees().map(x=>`<option value="${x.id}" ${x.id===t0.employeeId?'selected':''}>${x.name}</option>`).join('')}</select></div>
-   <div><label>車両</label><select id=mtVehicle><option value="">-</option>${db.vehicles.filter(v=>v.active||v.id===t0.vehicleId).map(v=>`<option value="${v.id}" ${v.id===t0.vehicleId?'selected':''}>${v.name}</option>`).join('')}</select></div>
+   <div><label>主担当の車両</label><select id=mtVehicle>${vehicleOpts(t0.vehicleId,false)}</select></div>
 
-   <div style="grid-column:1/-1"><label>補助</label><div class=passenger-grid>${activeEmployees().filter(x=>x.id!==t0.employeeId).map(x=>`<label><input type=checkbox data-helper="${x.id}" ${(t0.passengerIds||[]).includes(x.id)?'checked':''}>${x.name}</label>`).join('')}</div></div>
+   <div style="grid-column:1/-1"><label>補助人員</label>
+    <div class=passenger-grid>${activeEmployees().filter(x=>x.id!==t0.employeeId).map(x=>`<label><input type=checkbox data-helper="${x.id}" ${(t0.passengerIds||[]).includes(x.id)?'checked':''}>${x.name}</label>`).join('')}</div>
+   </div>
+
+   <div style="grid-column:1/-1"><label>補助人員の車両</label>
+    <div id=helperVehicleArea class=helper-vehicle-area></div>
+    <div class=small>一緒に移動する人は「主担当と同じ車両」。別のトラック等で移動する場合は、その人の車両を指定します。</div>
+   </div>
+
    <div><label>状態</label><select id=mtStatus>${[['confirmed','確定'],['provisional','仮予定'],['pending','ペンディング / 未割当']].map(([v,l])=>`<option value="${v}" ${v===t0.status?'selected':''}>${l}</option>`).join('')}</select></div>
    <div class=urgentbox><input id=mtUrgent type=checkbox ${t0.urgent?'checked':''}> 🔴 緊急対応</div>
   </div>
@@ -431,15 +473,23 @@ function taskModal(t,presetProject=''){
  `,()=>{
    const category=$('mtCategory').value;
    const hours=Math.round((+$('mtHours').value||0)*2)/2;
+   const slotHours=Math.round((+$('mtSlotHours').value||0)*2)/2;
    const rawStart=$('mtStart').value;
    const start=rawStart?snapTime30(rawStart):'';
+   const helperIds=[...$('modalBody').querySelectorAll('[data-helper]:checked')].map(x=>x.dataset.helper);
+   const helperVehicles={};
+   helperIds.forEach(id=>{
+     const el=$(`helperVeh_${id}`);
+     helperVehicles[id]=el?el.value:'__MAIN__';
+   });
    const n={...t0,id:t0.id,date:$('mtDate').value,name:$('mtName').value.trim(),category,type:category,
     projectId:$('mtProject').value,clientSite:category==='客先案件'?($('mtClientSite')?.value.trim()||''):'',
-    employeeId:$('mtEmployee').value,vehicleId:$('mtVehicle').value,start,plannedHours:hours,
-    end:calcEndTime(start,hours),status:$('mtStatus').value,urgent:$('mtUrgent').checked,
-    passengerIds:[...$('modalBody').querySelectorAll('[data-helper]:checked')].map(x=>x.dataset.helper)};
+    employeeId:$('mtEmployee').value,vehicleId:$('mtVehicle').value,helperVehicles,start,plannedHours:hours,slotHours,
+    end:calcEndTime(start,slotHours),status:$('mtStatus').value,urgent:$('mtUrgent').checked,
+    passengerIds:helperIds};
    if(n.status!=='pending'&&(!n.date||!n.start))return alert('確定・仮予定は日付と開始時刻を入力してください。');
    if(n.plannedHours<=0)return alert('予定工数を入力してください。');
+   if(n.slotHours<=0)return alert('予定枠を入力してください。');
    if(n.status!=='pending'&&!n.end)return alert('予定工数が24:00を超えています。');
 
    const conflict=findMainAssigneeConflict(n,edit?t0.id:'');
@@ -460,6 +510,18 @@ function taskModal(t,presetProject=''){
    save();closeModal();renderAll();showView('day');
   });
 
+ const renderHelperVehicles=()=>{
+   const area=$('helperVehicleArea');
+   if(!area)return;
+   const ids=[...$('modalBody').querySelectorAll('[data-helper]:checked')].map(x=>x.dataset.helper);
+   area.innerHTML=ids.length?ids.map(id=>{
+     const selected=t0.helperVehicles?.[id] ?? '__MAIN__';
+     return `<div class=helper-vehicle-row><b>${empName(id)}</b><select id="helperVeh_${id}">${vehicleOpts(selected,true)}</select></div>`;
+   }).join(''):'<div class=small>補助人員を選ぶと、ここに車両指定が表示されます。</div>';
+ };
+ $('modalBody').querySelectorAll('[data-helper]').forEach(x=>x.addEventListener('change',renderHelperVehicles));
+ renderHelperVehicles();
+
  const setSiteFromProject=()=>{
   if($('mtCategory').value!=='客先案件')return;
   $('mtClientSite').value=taskSiteDefault($('mtProject').value);
@@ -479,9 +541,15 @@ function taskModal(t,presetProject=''){
  const refreshEnd=()=>{
   if($('mtStart').value)$('mtStart').value=snapTime30($('mtStart').value);
   $('mtHours').value=Math.max(.5,Math.round((+$('mtHours').value||.5)*2)/2);
-  $('mtEnd').value=calcEndTime($('mtStart').value,+$('mtHours').value||0);
+  $('mtSlotHours').value=Math.max(.5,Math.round((+$('mtSlotHours').value||.5)*2)/2);
+  $('mtEnd').value=calcEndTime($('mtStart').value,+$('mtSlotHours').value||0);
  };
- $('mtStart').addEventListener('change',refreshEnd);$('mtHours').addEventListener('change',refreshEnd);
+ $('mtStart').addEventListener('change',refreshEnd);
+ $('mtHours').addEventListener('change',refreshEnd);
+ $('mtSlotHours').addEventListener('change',refreshEnd);
+ $('slotFromHours').onclick=()=>{$('mtSlotHours').value=$('mtHours').value;refreshEnd()};
+ $('slotMinus').onclick=()=>{$('mtSlotHours').value=Math.max(.5,(+$('mtSlotHours').value||.5)-.5);refreshEnd()};
+ $('slotPlus').onclick=()=>{$('mtSlotHours').value=(+$('mtSlotHours').value||.5)+.5;refreshEnd()};
  const shift=mins=>{
   if(!$('mtStart').value)$('mtStart').value='08:30';
   let total=Math.round(timeNum($('mtStart').value)*60/30)*30+mins;
@@ -552,11 +620,11 @@ function renderPending(){
   const rows=pendingTasks().map(t=>{
    const p=proj(t.projectId);
    return [t.id,t.category||'',taskDisplayName(t),t.projectId||'',deliveryCustomerId(p),deliveryCustomerName(p),
-    billingCustomerId(p),billingCustomerName(p),t.clientSite||'',+t.plannedHours||0,empName(t.employeeId),
+    billingCustomerId(p),billingCustomerName(p),t.clientSite||'',+t.plannedHours||0,+(t.slotHours??t.plannedHours)||0,empName(t.employeeId),
     t.date||'未定',t.start||'未定',statusText(t.status)];
   });
   exportExcelXml('ペンディング一覧_'+new Date().toISOString().slice(0,10),'ペンディング一覧',
-   ['タスクID','区分','内容','案件ID','納品先コード','納品先','支払先コード','支払先','客先/所在地','予定工数h','主担当','日付','開始','状態'],rows);
+   ['タスクID','区分','内容','案件ID','納品先コード','納品先','支払先コード','支払先','客先/所在地','予定工数h','予定枠h','主担当','日付','開始','状態'],rows);
  };
  $('pendingAdd').onclick=()=>taskModal(null);
  bindPendingButtons();
@@ -631,10 +699,11 @@ function renderDay(){
    const l=(st-rd.s)/span*100,w=(en-st)/span*100,isHelp=(t.passengerIds||[]).includes(e.id);
    const stackClass=stackClassForTask(t,e.id,orderedIds);
    const teamCount=taskParticipants(t).length;
-   bars+=`<div class="bar ${taskClass(t)} ${t.urgent?'urgent':''} task-click${stackClass}" data-bar="${t.id}" data-team-count="${teamCount}" style="left:${l}%;width:${w}%">${t.urgent?'🔴 ':''}${isHelp?'↳補助 ':''}${t.id} ${taskDisplayName(t)}${teamCount>1?` · ${teamCount}人`:''}</div>`;
+   const rowVehicle=taskVehicleLabelForEmployee(t,e.id);
+   bars+=`<div class="bar ${taskClass(t)} ${t.urgent?'urgent':''} task-click${stackClass}" data-bar="${t.id}" data-team-count="${teamCount}" style="left:${l}%;width:${w}%">${t.urgent?'🔴 ':''}${isHelp?'↳補助 ':''}${t.id} ${taskDisplayName(t)}${rowVehicle?` ｜🚚 ${rowVehicle}`:''}${teamCount>1?` · ${teamCount}人`:''}</div>`;
   });
 
-  const cars=[...new Set(my.filter(t=>t.vehicleId).map(t=>vehName(t.vehicleId)))].join(', ');
+  const cars=[...new Set(my.map(t=>taskVehicleLabelForEmployee(t,e.id)).filter(Boolean))].join(', ');
   const att=attendanceFor(e.id,currentDay);
   const attText=att?(att.type==='出勤'?`勤怠 ${att.work||0}h${att.overtime?` / 残業 ${att.overtime}h`:''}`:`${att.type}`):'勤怠未入力';
 
@@ -646,7 +715,7 @@ function renderDay(){
  $('day').innerHTML=`<div class=panel>
   <div class=daynav><button id=dPrev class=ghost>←前日</button><div class=datebox>${dateLabel(currentDay)}</div><button id=dNext class=ghost>翌日→</button></div>
   ${hs.map(h=>`<div class="banner ${h.type==='statutory'?'stat':'company'}">${h.name}</div>`).join('')}
-  ${urg.length?`<div class=banner style="background:#fff1f2;color:#991b1b">🔴 緊急 ${urg.length}件：${urg.map(x=>`${x.id} ${taskDisplayName(x)}`).join(' / ')}</div>`:''}
+  ${urg.length?`<div class=banner style="background:#fff1f2;color:#991b1b">🔴 緊急 ${urg.length}件：${urg.map(x=>`${x.id} ${taskDisplayName(x)}${taskDeliveryName(x)?`【${taskDeliveryName(x)}】`:''}`).join(' / ')}</div>`:''}
 
   <div class=timelegend>
    <span class=l-deep>深夜 0–5 / 22–24</span>
@@ -671,7 +740,7 @@ function renderDay(){
  ${pendingMiniPanel('ペンディング / 未割当')}
 
  <div class=panel><h3>この日のタスク</h3><div class=tablewrap><table>
-  <tr><th>ID</th><th>時間</th><th>区分</th><th>内容</th><th>客先/所在地</th><th>案件</th><th>担当</th><th>補助</th><th>状態</th><th></th></tr>
+  <tr><th>ID</th><th>時間</th><th>区分</th><th>内容</th><th>客先/所在地</th><th>案件</th><th>担当/車両</th><th>補助/車両</th><th>状態</th><th></th></tr>
   ${allTs.map(t=>`<tr>
    <td>${t.urgent?'<span class=urgent-badge>緊急</span><br>':''}${t.id}</td>
    <td>${t.start}-${t.end}</td>
@@ -679,8 +748,8 @@ function renderDay(){
    <td>${taskDisplayName(t)}</td>
    <td>${t.category==='客先案件'?(t.clientSite||'-'):'-'}</td>
    <td>${projectLabel(t.projectId)}</td>
-   <td>${empName(t.employeeId)}</td>
-   <td>${(t.passengerIds||[]).map(empName).join('、')||'-'}</td>
+   <td>${empName(t.employeeId)}${taskVehicleLabelForEmployee(t,t.employeeId)?`<br><span class=small>🚚 ${taskVehicleLabelForEmployee(t,t.employeeId)}</span>`:''}</td>
+   <td>${(t.passengerIds||[]).map(id=>`${empName(id)}${taskVehicleLabelForEmployee(t,id)?` <span class=small>🚚 ${taskVehicleLabelForEmployee(t,id)}</span>`:''}`).join('<br>')||'-'}</td>
    <td><span class="badge ${statusBadge(t.status)} ${t.status}">${statusText(t.status)}</span></td>
    <td><button class=ghost data-te="${t.id}">編集</button> <button class=danger data-td="${t.id}">削除</button></td>
   </tr>`).join('')}
