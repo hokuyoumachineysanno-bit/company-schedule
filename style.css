@@ -338,3 +338,8 @@ textarea{min-height:68px}
 .day-drag-tip{position:fixed;z-index:99999;display:none;padding:6px 9px;border-radius:7px;background:#0f172a;color:#fff;font-size:12px;font-weight:700;pointer-events:none;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.22)}
 body.bar-drag-active{user-select:none;-webkit-user-select:none}
 @media(max-width:700px){.bar-resize-handle{width:15px}}
+
+/* v2.0.12 drag fix */
+.bar.task-click{touch-action:pan-y}
+body.bar-drag-active{cursor:grabbing!important}
+body.bar-drag-active .gantt{cursor:grabbing!important}

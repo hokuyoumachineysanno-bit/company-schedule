@@ -610,6 +610,7 @@ function bindOpenPending(){
  bindPendingButtons();
 }
 
+
 let dayBarDrag=null;
 function minutesToTime(total){
  total=Math.max(0,Math.min(1430,Math.round(total/30)*30));
@@ -626,74 +627,102 @@ function showDragTip(text,x,y){
  tip.textContent=text;tip.style.left=`${x+12}px`;tip.style.top=`${y-38}px`;tip.style.display='block';
 }
 function hideDragTip(){const t=document.getElementById('dayDragTip');if(t)t.style.display='none'}
+
+function startDayBarDrag(el,ev,mode){
+ const task=db.tasks.find(t=>t.id===el.dataset.bar);
+ if(!task||task.status==='pending'||!task.start)return false;
+ const gantt=el.closest('.gantt');if(!gantt)return false;
+ const rect=gantt.getBoundingClientRect();
+ const startMin=Math.round(timeNum(task.start)*60/30)*30;
+ const slotHours=+(task.slotHours??task.plannedHours)||.5;
+ dayBarDrag={
+  el,task,mode,rect,startX:ev.clientX,startY:ev.clientY,
+  startMin,slotHours,newStartMin:startMin,newSlotHours:slotHours,moved:false
+ };
+ el.classList.add('dragging');document.body.classList.add('bar-drag-active');
+ showDragTip(dayBarRangeText(startMin,slotHours),ev.clientX,ev.clientY);
+ return true;
+}
+
+function moveDayBarDrag(ev){
+ const d=dayBarDrag;if(!d)return;
+ ev.preventDefault();
+ const deltaMin=Math.round((((ev.clientX-d.startX)/d.rect.width)*1440)/30)*30;
+ if(d.mode==='move'){
+  const duration=Math.round(d.slotHours*60);
+  d.newStartMin=Math.max(0,Math.min(1440-duration,d.startMin+deltaMin));
+  d.el.style.left=`${d.newStartMin/1440*100}%`;
+ }else{
+  let dur=Math.max(30,Math.round(d.slotHours*60)+deltaMin);
+  dur=Math.min(1440-d.startMin,dur);
+  d.newSlotHours=dur/60;
+  d.el.style.width=`${dur/1440*100}%`;
+ }
+ if(Math.abs(deltaMin)>=30)d.moved=true;
+ showDragTip(dayBarRangeText(d.newStartMin,d.newSlotHours),ev.clientX,ev.clientY);
+}
+
+function finishDayBarDrag(ev){
+ const d=dayBarDrag;if(!d)return;
+ d.el.classList.remove('dragging');document.body.classList.remove('bar-drag-active');hideDragTip();dayBarDrag=null;
+ if(!d.moved){if(d.mode==='move')taskModal(d.task);else renderDay();return}
+ const oldStart=d.task.start,oldSlot=+(d.task.slotHours??d.task.plannedHours)||.5;
+ const newStart=minutesToTime(d.newStartMin),newSlot=Math.max(.5,Math.round(d.newSlotHours*2)/2);
+ const candidate={...d.task,start:newStart,slotHours:newSlot,end:calcEndTime(newStart,newSlot)};
+ const conflict=findMainAssigneeConflict(candidate,d.task.id);
+ if(conflict&&!sameClientTask(candidate,conflict)){
+  alert(`時間を変更できません。\n主担当「${empName(candidate.employeeId)}」の ${conflict.id} ${taskDisplayName(conflict)} と重複します。`);
+  renderDay();return;
+ }
+ if(conflict&&sameClientTask(candidate,conflict)){
+  if(!confirm(`変更後の時間が ${conflict.id} ${taskDisplayName(conflict)} と重複します。\n同一客先として重ねますか？`)){renderDay();return}
+  const group=conflict.visitGroupId||nextVisitGroupId();conflict.visitGroupId=group;d.task.visitGroupId=group;
+ }
+ d.task.start=newStart;d.task.slotHours=newSlot;d.task.end=calcEndTime(newStart,newSlot);
+ d.task.history=[...(d.task.history||[]),{at:new Date().toLocaleString('ja-JP'),text:d.mode==='move'?`時間バー移動 ${oldStart} → ${newStart}`:`予定枠変更 ${oldSlot}h → ${newSlot}h`}];
+ save();renderAll();showView('day');
+}
+
 function bindDayBarInteractions(){
  document.querySelectorAll('[data-bar]').forEach(el=>{
-  let pressTimer=null,startPoint=null,suppressClick=false;
-  const begin=(ev,mode)=>{
-   const task=db.tasks.find(t=>t.id===el.dataset.bar);
-   if(!task||task.status==='pending'||!task.start)return;
-   const gantt=el.closest('.gantt'); if(!gantt)return;
-   const rect=gantt.getBoundingClientRect();
-   const startMin=Math.round(timeNum(task.start)*60/30)*30;
-   const slotHours=+(task.slotHours??task.plannedHours)||.5;
-   dayBarDrag={el,task,mode,rect,startX:ev.clientX,startMin,slotHours,newStartMin:startMin,newSlotHours:slotHours,moved:false};
-   el.classList.add('dragging');document.body.classList.add('bar-drag-active');
-   try{el.setPointerCapture(ev.pointerId)}catch(e){}
-   showDragTip(dayBarRangeText(startMin,slotHours),ev.clientX,ev.clientY);
-  };
-  el.addEventListener('pointerdown',ev=>{
+  let longPress=null,downX=0,downY=0;
+  el.onpointerdown=ev=>{
    if(ev.button!=null&&ev.button!==0)return;
-   const handle=ev.target.closest('.bar-resize-handle');
-   startPoint={x:ev.clientX,y:ev.clientY}; suppressClick=false;
-   if(handle){ev.preventDefault();ev.stopPropagation();begin(ev,'resize');suppressClick=true}
-   else if(ev.pointerType==='mouse'){ev.preventDefault();begin(ev,'move')}
-   else pressTimer=setTimeout(()=>{begin(ev,'move');suppressClick=true},450);
-  });
-  el.addEventListener('pointermove',ev=>{
-   if(pressTimer&&startPoint&&(Math.abs(ev.clientX-startPoint.x)>8||Math.abs(ev.clientY-startPoint.y)>8)){clearTimeout(pressTimer);pressTimer=null}
-   const d=dayBarDrag;if(!d||d.el!==el)return;
-   ev.preventDefault();
-   const deltaMin=Math.round((((ev.clientX-d.startX)/d.rect.width)*1440)/30)*30;
-   if(d.mode==='move'){
-    const duration=Math.round(d.slotHours*60);
-    d.newStartMin=Math.max(0,Math.min(1440-duration,d.startMin+deltaMin));
-    d.el.style.left=`${d.newStartMin/1440*100}%`;
+   downX=ev.clientX;downY=ev.clientY;
+   const mode=ev.target.closest('.bar-resize-handle')?'resize':'move';
+   if(ev.pointerType==='mouse'){
+    ev.preventDefault();
+    startDayBarDrag(el,ev,mode);
    }else{
-    let dur=Math.max(30,Math.round(d.slotHours*60)+deltaMin);
-    dur=Math.min(1440-d.startMin,dur);
-    d.newSlotHours=dur/60;d.el.style.width=`${dur/1440*100}%`;
+    if(mode==='resize'){
+     ev.preventDefault();startDayBarDrag(el,ev,'resize');
+    }else{
+     longPress=setTimeout(()=>{
+      longPress=null;
+      startDayBarDrag(el,ev,'move');
+     },450);
+    }
    }
-   if(Math.abs(deltaMin)>=30){d.moved=true;suppressClick=true}
-   showDragTip(dayBarRangeText(d.newStartMin,d.newSlotHours),ev.clientX,ev.clientY);
-  });
-  el.addEventListener('pointerup',ev=>{
-   if(pressTimer){clearTimeout(pressTimer);pressTimer=null}
-   const d=dayBarDrag;
-   if(!d||d.el!==el){if(!suppressClick)taskModal(db.tasks.find(t=>t.id===el.dataset.bar));return}
-   ev.preventDefault();ev.stopPropagation();
-   d.el.classList.remove('dragging');document.body.classList.remove('bar-drag-active');hideDragTip();dayBarDrag=null;
-   if(!d.moved){if(d.mode!=='resize')taskModal(d.task);else renderDay();return}
-   const oldStart=d.task.start,oldSlot=+(d.task.slotHours??d.task.plannedHours)||.5;
-   const newStart=minutesToTime(d.newStartMin),newSlot=Math.max(.5,Math.round(d.newSlotHours*2)/2);
-   const candidate={...d.task,start:newStart,slotHours:newSlot,end:calcEndTime(newStart,newSlot)};
-   const conflict=findMainAssigneeConflict(candidate,d.task.id);
-   if(conflict&&!sameClientTask(candidate,conflict)){
-    alert(`時間を変更できません。\n主担当「${empName(candidate.employeeId)}」の ${conflict.id} ${taskDisplayName(conflict)} と重複します。`);
-    renderDay();return;
+  };
+  el.onpointermove=ev=>{
+   if(longPress&&(Math.abs(ev.clientX-downX)>8||Math.abs(ev.clientY-downY)>8)){clearTimeout(longPress);longPress=null}
+  };
+  el.onpointerup=ev=>{
+   if(longPress){
+    clearTimeout(longPress);longPress=null;
+    taskModal(db.tasks.find(t=>t.id===el.dataset.bar));
    }
-   if(conflict&&sameClientTask(candidate,conflict)){
-    if(!confirm(`変更後の時間が ${conflict.id} ${taskDisplayName(conflict)} と重複します。\n同一客先として重ねますか？`)){renderDay();return}
-    const group=conflict.visitGroupId||nextVisitGroupId();conflict.visitGroupId=group;d.task.visitGroupId=group;
-   }
-   d.task.start=newStart;d.task.slotHours=newSlot;d.task.end=calcEndTime(newStart,newSlot);
-   d.task.history=[...(d.task.history||[]),{at:new Date().toLocaleString('ja-JP'),text:d.mode==='move'?`時間バー移動 ${oldStart} → ${newStart}`:`予定枠変更 ${oldSlot}h → ${newSlot}h`}];
-   save();renderAll();showView('day');
-  });
-  el.addEventListener('pointercancel',()=>{
-   if(pressTimer){clearTimeout(pressTimer);pressTimer=null}
-   if(dayBarDrag?.el===el){dayBarDrag=null;el.classList.remove('dragging');document.body.classList.remove('bar-drag-active');hideDragTip();renderDay()}
-  });
+  };
+  el.onpointercancel=()=>{if(longPress){clearTimeout(longPress);longPress=null}};
  });
+}
+
+// Use document listeners so pointer movement continues even when the pointer leaves a narrow bar.
+if(!window.__dayBarDragDocumentBound){
+ window.__dayBarDragDocumentBound=true;
+ document.addEventListener('pointermove',ev=>{if(dayBarDrag)moveDayBarDrag(ev)},{passive:false});
+ document.addEventListener('pointerup',ev=>{if(dayBarDrag){ev.preventDefault();finishDayBarDrag(ev)}},{passive:false});
+ document.addEventListener('pointercancel',()=>{if(dayBarDrag){dayBarDrag.el.classList.remove('dragging');dayBarDrag=null;document.body.classList.remove('bar-drag-active');hideDragTip();renderDay()}});
 }
 
 function renderPending(){
