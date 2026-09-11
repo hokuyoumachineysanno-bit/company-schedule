@@ -23,6 +23,8 @@ db.tasks.forEach(t=>{
  if(t.plannedHours!=null)t.plannedHours=Math.max(.5,Math.round((+t.plannedHours||0)*2)/2);
  if(!t.helperVehicles||typeof t.helperVehicles!=='object')t.helperVehicles={};
  if(t.slotHours==null)t.slotHours=+t.plannedHours||0;
+ if(!t.status)t.status='confirmed';
+ if(!Array.isArray(t.history))t.history=[];
 });
 db.projects.forEach(p=>{
  if(!p.deliveryCustomerId)p.deliveryCustomerId=p.customerId||'';
@@ -121,6 +123,9 @@ const taskDeliveryName=t=>{
  const s=String(t?.clientSite||'').trim();
  return s?s.split('/')[0].trim():'';
 };
+const localTodayISO=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+const expiredProvisionalTasks=()=>db.tasks.filter(t=>t.status==='provisional'&&t.date&&t.date<localTodayISO()).sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.start||'').localeCompare(b.start||''));
+
 function nextCustomerCode(){
  let max=0;
  (db.customers||[]).forEach(c=>{
@@ -165,7 +170,7 @@ function filterCustomerSelect(inputId,selectId){
 }
 
 const projectLabel=id=>{const p=proj(id);return p?`${p.id} ${deliveryCustomerName(p)||'仮顧客'} ${p.name}`:'社内'};
-const statusText=s=>({confirmed:'確定',pending:'ペンディング',provisional:'仮予定'})[s]||s,statusBadge=s=>s==='confirmed'?'bc':s==='pending'?'bp':'bv';
+const statusText=s=>({confirmed:'確定',pending:'ペンディング',provisional:'仮予定',completed:'完了',cancelled:'取消'})[s]||s,statusBadge=s=>(s==='confirmed'||s==='completed')?'bc':s==='pending'?'bp':s==='cancelled'?'bp':'bv';
 const taskClass=t=>{
   const base=t.category==='社内案件'?'cat-internal':t.category==='その他'?'cat-other':'cat-client';
   const state=t.status==='provisional'?' is-provisional':t.status==='pending'?' is-pending':'';
@@ -399,7 +404,7 @@ function renderProjects(){
 }
 function renderYear(){const ms=[7,8,9,10,11,12];$('year').innerHTML=`<div class=grid2><div class=panel><h3>年間案件</h3><div class=tablewrap><table><tr><th>案件</th>${ms.map(m=>`<th>${m}月</th>`).join('')}<th>納期</th></tr>${db.projects.map(p=>`<tr><td><b>${p.id}</b><br>${p.name}</td>${ms.map(m=>{const active=new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline);return`<td>${active?`<div class="pill confirmed">${p.status}<br>${p.hours}h/${p.people}名</div>`:''}${db.tasks.filter(t=>t.projectId===p.id&&+t.date.slice(5,7)===m).map(t=>`<div class="pill ${t.status}">${t.id} ${taskDisplayName(t)}</div>`).join('')}</td>`}).join('')}<td>${p.deadline}</td></tr>`).join('')}</table></div></div><div class=panel><h3>年間労務</h3><div class=tablewrap><table><tr><th>社員</th><th>休日</th><th>有休</th><th>就労</th><th>時間外</th><th>36協定</th></tr>${db.attendanceSummary.map(x=>`<tr><td>${empName(x.employeeId)}</td><td>${x.holidaysTaken}/${x.annualHolidays}</td><td>${x.paidLeaveTaken}</td><td>${x.annualWork}h</td><td>${x.overtime}h</td><td>${x.agreementPct}%</td></tr>`).join('')}</table></div></div></div>`}
 function renderQuarter(){$('quarter').innerHTML=[['Q3 7-9月',[7,8,9]],['Q4 10-12月',[10,11,12]]].map(([n,ms])=>`<div class=panel><h3>${n}</h3><div class=tablewrap><table><tr><th>案件</th><th>期間</th><th>工数</th><th>人員</th><th>主担当</th><th>未確定</th></tr>${db.projects.filter(p=>ms.some(m=>new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline))).map(p=>`<tr><td>${p.id}<br><b>${p.name}</b></td><td>${p.start}<br>～${p.deadline}</td><td>${p.hours}h</td><td>${p.people}名</td><td>${empName(p.ownerId)}</td><td>${db.tasks.filter(t=>t.projectId===p.id&&t.status!=='confirmed').length}</td></tr>`).join('')}</table></div></div>`).join('')}
-function renderMonth(){const[y,m]=currentMonth.split('-').map(Number),last=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay();let cells='';for(let i=0;i<first;i++)cells+='<div></div>';for(let d=1;d<=last;d++){const date=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,hs=db.holidays.filter(h=>h.date===date),ts=db.tasks.filter(t=>t.date===date),leave=db.attendance.filter(a=>a.date===date&&a.type!=='出勤'),cls=hs.some(h=>h.type==='statutory')?'holiday-bg holiday-statutory-cell':hs.some(h=>h.type==='company')?'company-bg holiday-company-cell':'';cells+=`<div class="daycell ${cls}" data-date="${date}"><div class=daynum>${d}</div>${hs.map(h=>`<div class="pill holiday-mark ${h.type==='statutory'?'holiday statutory-mark':'companyHoliday company-mark'}">${h.type==='statutory'?'法定休日':'所定休日'}</div>`).join('')}${leave.map(a=>`<div class="pill companyHoliday">${empName(a.employeeId)} ${a.type}</div>`).join('')}${ts.map(t=>`<div class="pill ${t.status}">${t.id} ${taskDisplayName(t)}<br>${empName(t.employeeId)}</div>`).join('')}</div>`}$('month').innerHTML=`<div class=panel><div class=daynav><button id=mPrev class=ghost>←前月</button><div class=datebox>${y}年${m}月</div><button id=mNext class=ghost>翌月→</button></div><div class=calendar-scroll><div class=calendar-head>${['日','月','火','水','木','金','土'].map(x=>`<div>${x}</div>`).join('')}</div><div class=calendar>${cells}</div></div></div>`;$('mPrev').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()-1);currentMonth=d.toISOString().slice(0,7);renderMonth()};$('mNext').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()+1);currentMonth=d.toISOString().slice(0,7);renderMonth()};document.querySelectorAll('[data-date]').forEach(c=>c.onclick=()=>{currentDay=c.dataset.date;showView('day');renderDay()})}
+function renderMonth(){const[y,m]=currentMonth.split('-').map(Number),last=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay();let cells='';for(let i=0;i<first;i++)cells+='<div></div>';for(let d=1;d<=last;d++){const date=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,hs=db.holidays.filter(h=>h.date===date),ts=db.tasks.filter(t=>t.date===date&&t.status!=='cancelled'),leave=db.attendance.filter(a=>a.date===date&&a.type!=='出勤'),cls=hs.some(h=>h.type==='statutory')?'holiday-bg holiday-statutory-cell':hs.some(h=>h.type==='company')?'company-bg holiday-company-cell':'';cells+=`<div class="daycell ${cls}" data-date="${date}"><div class=daynum>${d}</div>${hs.map(h=>`<div class="pill holiday-mark ${h.type==='statutory'?'holiday statutory-mark':'companyHoliday company-mark'}">${h.type==='statutory'?'法定休日':'所定休日'}</div>`).join('')}${leave.map(a=>`<div class="pill companyHoliday">${empName(a.employeeId)} ${a.type}</div>`).join('')}${ts.map(t=>`<div class="pill ${t.status}">${t.id} ${taskDisplayName(t)}<br>${empName(t.employeeId)}</div>`).join('')}</div>`}$('month').innerHTML=`<div class=panel><div class=daynav><button id=mPrev class=ghost>←前月</button><div class=datebox>${y}年${m}月</div><button id=mNext class=ghost>翌月→</button></div><div class=calendar-scroll><div class=calendar-head>${['日','月','火','水','木','金','土'].map(x=>`<div>${x}</div>`).join('')}</div><div class=calendar>${cells}</div></div></div>`;$('mPrev').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()-1);currentMonth=d.toISOString().slice(0,7);renderMonth()};$('mNext').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()+1);currentMonth=d.toISOString().slice(0,7);renderMonth()};document.querySelectorAll('[data-date]').forEach(c=>c.onclick=()=>{currentDay=c.dataset.date;showView('day');renderDay()})}
 function rangeDef(){
  if(dayRange==='am')return{s:0,e:12,h:Array.from({length:12},(_,i)=>i),cols:12};
  if(dayRange==='pm')return{s:12,e:24,h:Array.from({length:12},(_,i)=>i+12),cols:12};
@@ -466,7 +471,7 @@ function taskModal(t,presetProject=''){
     <div class=small>一緒に移動する人は「主担当と同じ車両」。別のトラック等で移動する場合は、その人の車両を指定します。</div>
    </div>
 
-   <div><label>状態</label><select id=mtStatus>${[['confirmed','確定'],['provisional','仮予定'],['pending','ペンディング / 未割当']].map(([v,l])=>`<option value="${v}" ${v===t0.status?'selected':''}>${l}</option>`).join('')}</select></div>
+   <div><label>状態</label><select id=mtStatus>${[['confirmed','確定'],['provisional','仮予定'],['completed','完了'],['pending','ペンディング / 未割当'],['cancelled','取消']].map(([v,l])=>`<option value="${v}" ${v===t0.status?'selected':''}>${l}</option>`).join('')}</select></div>
    <div class=urgentbox><input id=mtUrgent type=checkbox ${t0.urgent?'checked':''}> 🔴 緊急対応</div>
   </div>
   ${edit?`<div class=history><b>変更履歴</b>${(t0.history||[]).slice().reverse().map(h=>`<div class=history-item>${h.at||''}　${h.text}</div>`).join('')||'<div class=history-item>履歴なし</div>'}</div>`:''}
@@ -487,10 +492,10 @@ function taskModal(t,presetProject=''){
     employeeId:$('mtEmployee').value,vehicleId:$('mtVehicle').value,helperVehicles,start,plannedHours:hours,slotHours,
     end:calcEndTime(start,slotHours),status:$('mtStatus').value,urgent:$('mtUrgent').checked,
     passengerIds:helperIds};
-   if(n.status!=='pending'&&(!n.date||!n.start))return alert('確定・仮予定は日付と開始時刻を入力してください。');
+   if(!['pending','cancelled'].includes(n.status)&&(!n.date||!n.start))return alert('確定・仮予定・完了は日付と開始時刻を入力してください。');
    if(n.plannedHours<=0)return alert('予定工数を入力してください。');
    if(n.slotHours<=0)return alert('予定枠を入力してください。');
-   if(n.status!=='pending'&&!n.end)return alert('予定工数が24:00を超えています。');
+   if(!['pending','cancelled'].includes(n.status)&&!n.end)return alert('予定工数が24:00を超えています。');
 
    const conflict=findMainAssigneeConflict(n,edit?t0.id:'');
    if(conflict){
@@ -728,6 +733,42 @@ if(!window.__dayBarDragDocumentBound){
  document.addEventListener('pointercancel',()=>{if(dayBarDrag){dayBarDrag.el.classList.remove('dragging');dayBarDrag=null;document.body.classList.remove('bar-drag-active');hideDragTip();renderDay()}});
 }
 
+function expiredProvisionalModal(){
+ const items=expiredProvisionalTasks();
+ if(!items.length){alert('期限切れの仮予定はありません。');return}
+ openModal(`期限切れ仮予定 ${items.length}件`,`
+  <div class=expired-list>
+   ${items.map(t=>`<div class=expired-card>
+    <div class=expired-main><b>${t.date}　${t.start||''}　${t.id} ${taskDisplayName(t)}</b><div class=small>${taskDeliveryName(t)?`納品先：${taskDeliveryName(t)}　`:''}${empName(t.employeeId)}　${(t.slotHours??t.plannedHours)||0}h</div></div>
+    <div class=expired-actions>
+     <button type=button class=ghost data-expired-move="${t.id}">ずらす</button>
+     <button type=button class=primary2 data-expired-done="${t.id}">完了</button>
+     <button type=button class=danger2 data-expired-cancel="${t.id}">消滅</button>
+    </div>
+   </div>`).join('')}
+  </div>
+  <div class=small style="margin-top:10px">完了：元の日付に残り、過去の日フォーカスでは確定予定と同じ実線表示。消滅：削除せず取消履歴だけ残し、通常表示から外します。</div>
+ `,()=>closeModal());
+ document.querySelectorAll('[data-expired-move]').forEach(b=>b.onclick=()=>{
+  const t=db.tasks.find(x=>x.id===b.dataset.expiredMove);if(!t)return;
+  const next=prompt(`${t.id} ${taskDisplayName(t)} の移動先日付（YYYY-MM-DD）`,localTodayISO());
+  if(!next)return;if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(next))return alert('YYYY-MM-DD形式で入力してください。');
+  const old=t.date;t.date=next;t.status='provisional';t.history=[...(t.history||[]),{at:new Date().toLocaleString('ja-JP'),text:`期限切れ仮予定を日延べ ${old} → ${next}`}];
+  save();closeModal();renderAll();showView('day');
+ });
+ document.querySelectorAll('[data-expired-done]').forEach(b=>b.onclick=()=>{
+  const t=db.tasks.find(x=>x.id===b.dataset.expiredDone);if(!t)return;
+  t.status='completed';t.history=[...(t.history||[]),{at:new Date().toLocaleString('ja-JP'),text:'期限切れ仮予定を完了扱い'}];
+  save();closeModal();renderAll();showView('day');
+ });
+ document.querySelectorAll('[data-expired-cancel]').forEach(b=>b.onclick=()=>{
+  const t=db.tasks.find(x=>x.id===b.dataset.expiredCancel);if(!t)return;
+  if(!confirm(`${t.id} ${taskDisplayName(t)} を消滅（取消）扱いにしますか？`))return;
+  t.status='cancelled';t.history=[...(t.history||[]),{at:new Date().toLocaleString('ja-JP'),text:'期限切れ仮予定を取消（通常表示から除外）'}];
+  save();closeModal();renderAll();showView('day');
+ });
+}
+
 function renderPending(){
  $('pending').innerHTML=`<div class=panel>
   <div class=daynav><div><h3>ペンディング / 未割当一覧</h3><p class=small>日程未確定でも予定工数だけ保持できます。</p></div>
@@ -799,7 +840,7 @@ function stackClassForTask(t,employeeId,orderedIds){
 }
 
 function renderDay(){
- const allTs=db.tasks.filter(t=>t.date===currentDay);
+ const allTs=db.tasks.filter(t=>t.date===currentDay&&t.status!=='cancelled');
  const ts=allTs.filter(t=>t.status!=='pending');
  const hs=db.holidays.filter(h=>h.date===currentDay),rd=rangeDef(),span=rd.e-rd.s;
  let rows=`<div class="grow head"><div class=who>氏名 / 車両</div><div class=track style="--hours:${rd.cols}">${timeBands(rd.s,rd.e)}${rd.h.map(h=>`<div class=hour>${h}</div>`).join('')}</div></div>`;
@@ -835,6 +876,7 @@ function renderDay(){
   <div class=daynav><button id=dPrev class=ghost>←前日</button><div class=datebox>${dateLabel(currentDay)}</div><button id=dNext class=ghost>翌日→</button></div>
   ${hs.map(h=>`<div class="banner ${h.type==='statutory'?'stat':'company'}">${h.name}</div>`).join('')}
   ${urg.length?`<div class=banner style="background:#fff1f2;color:#991b1b">🔴 緊急 ${urg.length}件：${urg.map(x=>`${x.id} ${taskDisplayName(x)}${taskDeliveryName(x)?`【${taskDeliveryName(x)}】`:''}`).join(' / ')}</div>`:''}
+  ${expiredProvisionalTasks().length?`<div class="banner expired-provisional-banner">⚠ 期限切れ仮予定 ${expiredProvisionalTasks().length}件 <button type=button id=openExpiredProvisional class=ghost>処理する</button></div>`:''}
 
   <div class=timelegend>
    <span class=l-deep>深夜 0–5 / 22–24</span>
@@ -881,6 +923,7 @@ function renderDay(){
  document.querySelectorAll('[data-range]').forEach(b=>b.onclick=()=>{dayRange=b.dataset.range;renderDay()});
  document.querySelectorAll('[data-te]').forEach(b=>b.onclick=()=>taskModal(db.tasks.find(t=>t.id===b.dataset.te)));
  bindDayBarInteractions();
+ if($('openExpiredProvisional'))$('openExpiredProvisional').onclick=()=>expiredProvisionalModal();
  document.querySelectorAll('[data-td]').forEach(b=>b.onclick=()=>{
    const t=db.tasks.find(x=>x.id===b.dataset.td);if(!t)return;
    if(!confirm(`タスク ${t.id}「${t.name}」を削除しますか？`))return;

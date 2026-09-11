@@ -343,3 +343,10 @@ body.bar-drag-active{user-select:none;-webkit-user-select:none}
 .bar.task-click{touch-action:pan-y}
 body.bar-drag-active{cursor:grabbing!important}
 body.bar-drag-active .gantt{cursor:grabbing!important}
+
+/* v2.0.14 期限切れ仮予定 */
+.expired-provisional-banner{background:#fff7ed!important;color:#9a3412!important;border:1px solid #fdba74!important;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.expired-list{display:grid;gap:10px}
+.expired-card{display:flex;justify-content:space-between;gap:14px;align-items:center;border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#fff}
+.expired-main{min-width:0}.expired-actions{display:flex;gap:6px;flex-wrap:wrap}
+@media(max-width:700px){.expired-card{align-items:flex-start;flex-direction:column}.expired-actions{width:100%}.expired-actions button{flex:1}}
