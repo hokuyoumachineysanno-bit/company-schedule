@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>社内業務ポータル v2.1.0b</title>
+<title>社内業務ポータル v2.1.0c</title>
 <link rel="stylesheet" href="style.css?v=2.1.0-login">
 </head>
 <body>
@@ -14,14 +14,14 @@
     <p>PC・スマホ共通の社内ポータルです。</p>
     <button id="googleLoginBtn" class="auth-login-btn" type="button">Googleでログイン</button>
     <div id="authStatus" class="auth-status">ログインしてください</div>
-    <div class="auth-note">v2.1.0b はログイン動作確認版です。共有データのFirestore移行は次版で行います。</div>
+    <div class="auth-note">v2.1.0c はログイン動作確認版です。共有データのFirestore移行は次版で行います。</div>
   </div>
 </div>
 <div id="portalApp" class="portal-app auth-hidden">
 <header>
   <div>
     <div class="brand">社内業務ポータル</div>
-    <div class="sub">案件・予定・勤怠・社員・車両・顧客を共通キーで管理　v2.1.0b Googleログイン確認版</div>
+    <div class="sub">案件・予定・勤怠・社員・車両・顧客を共通キーで管理　v2.1.0c Googleログイン確認版</div>
   </div>
   <div class="header-auth">
     <span id="loginUser" class="login-user"></span>
@@ -63,6 +63,6 @@
 <div id="modal" class="modal hidden"><div class="modal-backdrop" data-modal-close></div><div class="modal-card"><div class="modal-head"><h3 id="modalTitle">編集</h3><button class="modal-x" data-modal-close>×</button></div><div id="modalBody" class="modal-body"></div><div class="modal-foot"><button id="modalCancel" class="ghost">キャンセル</button><button id="modalSave" class="primary">保存</button></div></div></div>
 </div>
 
-<script type="module" src="firebase-auth.js?v=2.1.0"></script>
+<script type="module" src="firebase-auth.js?v=2.1.0c-20260914"></script>
 </body>
 </html>
