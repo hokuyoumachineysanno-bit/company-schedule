@@ -33,7 +33,7 @@ db.projects.forEach(p=>{
 });
 
 
-localStorage.setItem(KEY,JSON.stringify(db));db.tasks.forEach(t=>{if(t.status==='unassigned')t.status='pending';if(!Array.isArray(t.passengerIds))t.passengerIds=[];if(!t.category)t.category=(['設計','見積','社内製作','段取り','整備'].includes(t.type)?'社内案件':'客先案件');if(typeof t.urgent!=='boolean')t.urgent=false;if(!Array.isArray(t.history))t.history=[];});db.projects.forEach(p=>{const m={'引合':'情報','見積中':'商談中','進行中':'施工中','保留':'商談中','完了':'検収済'};p.status=m[p.status]||p.status;if(!Array.isArray(p.history))p.history=[];});
+localStorage.setItem(KEY,JSON.stringify(db));db.tasks.forEach(t=>{if(t.status==='unassigned')t.status='pending';if(!Array.isArray(t.passengerIds))t.passengerIds=[];if(!t.category)t.category=(['設計','見積','社内製作','段取り','整備'].includes(t.type)?'社内案件':'客先案件');if(typeof t.urgent!=='boolean')t.urgent=false;if(!Array.isArray(t.history))t.history=[];});db.projects.forEach(p=>{const m={'引合':'情報','見積中':'商談中','進行中':'施工中','保留':'商談中','アフター':'アフターフォロー'};p.status=m[p.status]||p.status;if(!Array.isArray(p.history))p.history=[];});
 function applyTimeSnapshotToPortal(){
   let cache=null;
   try{
@@ -80,9 +80,25 @@ applyTimeSnapshotToPortal();
 let currentDay='2026-09-09',currentMonth='2026-09',masterType='employees',dayRange='all';
 const save=()=>{localStorage.setItem(KEY,JSON.stringify(db));};
 const emp=id=>db.employees.find(x=>x.id===id),veh=id=>db.vehicles.find(x=>x.id===id),cust=id=>db.customers.find(x=>x.id===id),proj=id=>db.projects.find(x=>x.id===id);
-const isProjectArchived=p=>['検収済','アフター','完了'].includes(p?.status);
+const isProjectArchived=p=>['完了'].includes(p?.status);
 const activeProjects=()=>db.projects.filter(p=>!isProjectArchived(p));
 const archivedProjects=()=>db.projects.filter(isProjectArchived);
+
+const PROJECT_STATUSES=['情報','アプローチ','商談中','見積提出','受注','施工中','検収待ち','検収済','アフターフォロー','是正対応','完了'];
+const PROJECT_STAGE_DEFS=[
+ ['prequote','見積提出前',['情報','アプローチ','商談中']],
+ ['quoted','見積提出',['見積提出']],
+ ['ordered','受注',['受注']],
+ ['execution','施工～検収',['施工中','検収待ち','検収済']],
+ ['after','アフターフォロー',['アフターフォロー']],
+ ['corrective','是正対応',['是正対応']],
+ ['done','完了',['完了']]
+];
+const projectStageKey=p=>PROJECT_STAGE_DEFS.find(x=>x[2].includes(p?.status))?.[0]||'prequote';
+const projectStageLabel=p=>PROJECT_STAGE_DEFS.find(x=>x[0]===projectStageKey(p))?.[1]||p?.status||'';
+const projectStageOrder=p=>Math.max(0,PROJECT_STAGE_DEFS.findIndex(x=>x[0]===projectStageKey(p)));
+let projectLedgerFilter={scope:'active',stage:'all',status:'all',dateBasis:'start',from:'',to:'',sort:'stage'};
+
 
 const empName=id=>emp(id)?.name||'未割当',vehName=id=>veh(id)?.name||'-',custName=id=>cust(id)?.name||'',activeEmployees=()=>db.employees.filter(x=>x.active).sort((a,b)=>a.order-b.order);
 const deliveryCustomerId=p=>p?.deliveryCustomerId||p?.customerId||'';
@@ -278,7 +294,7 @@ function projectModal(p){
  openModal(isEdit?'案件編集':'案件追加',`
   <div class=form>
    <div><label>案件ID</label><input id=mpId value="${p0.id}"></div>
-   <div><label>状態</label><select id=mpStatus>${['情報','アプローチ','商談中','見積提出','受注','施工中','検収待ち','検収済','アフター','完了'].map(x=>`<option ${x===p0.status?'selected':''}>${x}</option>`).join('')}</select></div>
+   <div><label>状態</label><select id=mpStatus>${PROJECT_STATUSES.map(x=>`<option ${x===p0.status?'selected':''}>${x}</option>`).join('')}</select></div>
 
    <div style="grid-column:1/-1"><label class=checkline><input type=checkbox id=mpDeliveryTemp ${deliveryTemp?'checked':''}> 納品先を仮入力する</label></div>
    <div id=deliveryMasterArea style="grid-column:1/-1;${deliveryTemp?'display:none':''}">
@@ -366,13 +382,26 @@ function projectModal(p){
  $('mpBillingTemp').onchange=toggleBilling;
 }
 function renderProjects(){
- const active=db.projects.filter(p=>!isProjectArchived(p));
- const archived=db.projects.filter(isProjectArchived);
+ const f=projectLedgerFilter;
+ let rows=[...db.projects];
+ if(f.scope==='active')rows=rows.filter(p=>!isProjectArchived(p));
+ if(f.scope==='archived')rows=rows.filter(isProjectArchived);
+ if(f.stage!=='all')rows=rows.filter(p=>projectStageKey(p)===f.stage);
+ if(f.status!=='all')rows=rows.filter(p=>p.status===f.status);
+ const dateValue=p=>f.dateBasis==='deadline'?(p.deadline||''):(p.start||'');
+ if(f.from)rows=rows.filter(p=>dateValue(p)&&dateValue(p)>=f.from);
+ if(f.to)rows=rows.filter(p=>dateValue(p)&&dateValue(p)<=f.to);
+ rows.sort((a,b)=>{
+  if(f.sort==='dateAsc')return dateValue(a).localeCompare(dateValue(b));
+  if(f.sort==='dateDesc')return dateValue(b).localeCompare(dateValue(a));
+  if(f.sort==='deadline')return (a.deadline||'9999').localeCompare(b.deadline||'9999');
+  if(f.sort==='id')return (a.id||'').localeCompare(b.id||'');
+  return projectStageOrder(a)-projectStageOrder(b)||(dateValue(a)||'9999').localeCompare(dateValue(b)||'9999');
+ });
  const card=p=>{
-  const assigned=projectAssignedHours(p),remaining=projectRemainingHours(p);
-  return `<div class=project-card>
-   <h4>${p.id}　${p.name}</h4>
-   <div><span class="badge bblue">${p.status}</span>${p.deliveryTemp?.name?'<span class="badge temp-badge">仮納品先</span>':''}${p.billingTemp?.name?'<span class="badge temp-badge">仮支払先</span>':''}</div>
+  const assigned=projectAssignedHours(p),remaining=projectRemainingHours(p),stage=projectStageKey(p);
+  return `<div class="project-card project-stage-${stage}">
+   <div class=project-card-head><h4>${p.id}　${p.name}</h4><div><span class="project-stage-badge stage-${stage}">${projectStageLabel(p)}</span><span class="project-status-chip">${p.status}</span>${p.deliveryTemp?.name?'<span class="badge temp-badge">仮納品先</span>':''}${p.billingTemp?.name?'<span class="badge temp-badge">仮支払先</span>':''}</div></div>
    <div class=small>納品先：${deliveryCustomerId(p)||'仮'} ${deliveryCustomerName(p)||'-'}${deliveryCustomerAddress(p)?` / ${deliveryCustomerAddress(p)}`:''}</div>
    <div class=small>支払先：${billingCustomerId(p)||'仮'} ${billingCustomerName(p)||'-'}</div>
    <div class=small>施工予定日 ${p.start||'未定'} / 納期 ${p.deadline||'-'} / 案件工数 ${p.hours}h / 主担当 ${empName(p.ownerId)}</div>
@@ -380,28 +409,42 @@ function renderProjects(){
    <div class=actions><button class=ghost data-pe="${p.id}">編集</button>${!isProjectArchived(p)?`<button class=primary data-po="${p.id}">${remaining>0?`残り${remaining}hを予定に入れる`:'＋タスク追加'}</button>`:''}<button class=danger data-pd="${p.id}">削除</button></div>
   </div>`;
  };
+ const stageOptions=PROJECT_STAGE_DEFS.map(([k,l])=>`<option value="${k}" ${f.stage===k?'selected':''}>${l}</option>`).join('');
+ const statusOptions=PROJECT_STATUSES.map(x=>`<option value="${x}" ${f.status===x?'selected':''}>${x}</option>`).join('');
  $('projects').innerHTML=`<div class=panel>
-  <div class=daynav><div><h3>案件台帳</h3><p class=small>案件＝仕事全体の箱。予定工数をタスクへ必要な分だけ割り当てます。</p></div>
-   <div class=actions><button id=projectExcel class=ghost>Excel出力</button><button id=addProject class=primary>＋案件追加</button></div>
+  <div class=daynav><div><h3>案件台帳</h3><p class=small>ステータス色・期間で、今どの段階に仕事が溜まっているかを見ます。</p></div>
+   <div class=actions><button id=projectExcel class=ghost>絞込結果をExcel出力</button><button id=addProject class=primary>＋案件追加</button></div>
   </div>
-  ${active.length?active.map(card).join(''):'<div class=small>進行中の案件はありません。</div>'}
- </div>
- <details class="panel archive-panel"><summary><b>検収済・アーカイブ案件</b> (${archived.length})</summary>
-  <div>${archived.length?archived.map(card).join(''):'<div class=small>アーカイブはありません。</div>'}</div>
- </details>`;
+  <div class=project-stage-legend>
+   ${PROJECT_STAGE_DEFS.filter(x=>x[0]!=='done').map(([k,l])=>`<span class="project-stage-badge stage-${k}">${l}</span>`).join('')}
+  </div>
+  <div class=project-filter-grid>
+   <div><label>表示範囲</label><select id=pfScope><option value=active ${f.scope==='active'?'selected':''}>進行中</option><option value=all ${f.scope==='all'?'selected':''}>すべて</option><option value=archived ${f.scope==='archived'?'selected':''}>完了</option></select></div>
+   <div><label>段階</label><select id=pfStage><option value=all>すべて</option>${stageOptions}</select></div>
+   <div><label>詳細ステータス</label><select id=pfStatus><option value=all>すべて</option>${statusOptions}</select></div>
+   <div><label>日付基準</label><select id=pfDateBasis><option value=start ${f.dateBasis==='start'?'selected':''}>施工予定日</option><option value=deadline ${f.dateBasis==='deadline'?'selected':''}>納期</option></select></div>
+   <div><label>期間 From</label><input id=pfFrom type=date value="${f.from}"></div>
+   <div><label>期間 To</label><input id=pfTo type=date value="${f.to}"></div>
+   <div><label>並び順</label><select id=pfSort><option value=stage ${f.sort==='stage'?'selected':''}>段階順</option><option value=dateAsc ${f.sort==='dateAsc'?'selected':''}>日付 古い→新しい</option><option value=dateDesc ${f.sort==='dateDesc'?'selected':''}>日付 新しい→古い</option><option value=deadline ${f.sort==='deadline'?'selected':''}>納期順</option><option value=id ${f.sort==='id'?'selected':''}>案件ID順</option></select></div>
+   <div class=project-filter-actions><button id=pfClear class=ghost>条件クリア</button></div>
+  </div>
+  <div class=project-result-head><b>${rows.length}件</b><span class=small>${f.from||'指定なし'} ～ ${f.to||'指定なし'}</span></div>
+  <div id=projectCards>${rows.length?rows.map(card).join(''):'<div class=small>条件に一致する案件はありません。</div>'}</div>
+ </div>`;
+ const rerender=()=>renderProjects();
+ ['pfScope','pfStage','pfStatus','pfDateBasis','pfSort'].forEach(id=>$(id).onchange=()=>{projectLedgerFilter[{pfScope:'scope',pfStage:'stage',pfStatus:'status',pfDateBasis:'dateBasis',pfSort:'sort'}[id]]=$(id).value;rerender()});
+ ['pfFrom','pfTo'].forEach(id=>$(id).onchange=()=>{projectLedgerFilter[id==='pfFrom'?'from':'to']=$(id).value;rerender()});
+ $('pfClear').onclick=()=>{projectLedgerFilter={scope:'active',stage:'all',status:'all',dateBasis:'start',from:'',to:'',sort:'stage'};rerender()};
  $('projectExcel').onclick=()=>{
-  const rows=db.projects.map(p=>[p.id,p.status,deliveryCustomerId(p)||'仮',deliveryCustomerName(p),billingCustomerId(p)||'仮',billingCustomerName(p),
-   p.name,p.start||'',p.deadline||'',+p.hours||0,projectAssignedHours(p),projectRemainingHours(p),+p.people||0,empName(p.ownerId),p.note||'']);
-  exportExcelXml('案件一覧_'+new Date().toISOString().slice(0,10),'案件一覧',
-   ['案件ID','ステータス','納品先コード','納品先','支払先コード','支払先','案件名','施工予定日','納期','案件予定工数h','タスク割当h','未割当h','必要人員','主担当','備考'],rows);
+  const out=rows.map(p=>[p.id,projectStageLabel(p),p.status,deliveryCustomerId(p)||'仮',deliveryCustomerName(p),billingCustomerId(p)||'仮',billingCustomerName(p),p.name,p.start||'',p.deadline||'',+p.hours||0,projectAssignedHours(p),projectRemainingHours(p),+p.people||0,empName(p.ownerId),p.note||'']);
+  exportExcelXml('案件一覧_絞込_'+new Date().toISOString().slice(0,10),'案件一覧',['案件ID','段階','ステータス','納品先コード','納品先','支払先コード','支払先','案件名','施工予定日','納期','案件予定工数h','タスク割当h','未割当h','必要人員','主担当','備考'],out);
  };
  $('addProject').onclick=()=>projectModal(null);
  document.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>projectModal(proj(b.dataset.pe)));
  document.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{if(confirm('案件を削除しますか？')){db.projects=db.projects.filter(x=>x.id!==b.dataset.pd);save();renderAll();showView('projects')}});
- document.querySelectorAll('[data-po]').forEach(b=>b.onclick=()=>{
-   const p=proj(b.dataset.po);currentDay=p?.start||currentDay;showView('day');renderDay();setTimeout(()=>taskModal(null,b.dataset.po),80);
- });
+ document.querySelectorAll('[data-po]').forEach(b=>b.onclick=()=>{const p=proj(b.dataset.po);currentDay=p?.start||currentDay;showView('day');renderDay();setTimeout(()=>taskModal(null,b.dataset.po),80)});
 }
+
 function renderYear(){const ms=[7,8,9,10,11,12];$('year').innerHTML=`<div class=grid2><div class=panel><h3>年間案件</h3><div class=tablewrap><table><tr><th>案件</th>${ms.map(m=>`<th>${m}月</th>`).join('')}<th>納期</th></tr>${db.projects.map(p=>`<tr><td><b>${p.id}</b><br>${p.name}</td>${ms.map(m=>{const active=new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline);return`<td>${active?`<div class="pill confirmed">${p.status}<br>${p.hours}h/${p.people}名</div>`:''}${db.tasks.filter(t=>t.projectId===p.id&&+t.date.slice(5,7)===m).map(t=>`<div class="pill ${t.status}">${t.id} ${taskDisplayName(t)}</div>`).join('')}</td>`}).join('')}<td>${p.deadline}</td></tr>`).join('')}</table></div></div><div class=panel><h3>年間労務</h3><div class=tablewrap><table><tr><th>社員</th><th>休日</th><th>有休</th><th>就労</th><th>時間外</th><th>36協定</th></tr>${db.attendanceSummary.map(x=>`<tr><td>${empName(x.employeeId)}</td><td>${x.holidaysTaken}/${x.annualHolidays}</td><td>${x.paidLeaveTaken}</td><td>${x.annualWork}h</td><td>${x.overtime}h</td><td>${x.agreementPct}%</td></tr>`).join('')}</table></div></div></div>`}
 function renderQuarter(){$('quarter').innerHTML=[['Q3 7-9月',[7,8,9]],['Q4 10-12月',[10,11,12]]].map(([n,ms])=>`<div class=panel><h3>${n}</h3><div class=tablewrap><table><tr><th>案件</th><th>期間</th><th>工数</th><th>人員</th><th>主担当</th><th>未確定</th></tr>${db.projects.filter(p=>ms.some(m=>new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline))).map(p=>`<tr><td>${p.id}<br><b>${p.name}</b></td><td>${p.start}<br>～${p.deadline}</td><td>${p.hours}h</td><td>${p.people}名</td><td>${empName(p.ownerId)}</td><td>${db.tasks.filter(t=>t.projectId===p.id&&t.status!=='confirmed').length}</td></tr>`).join('')}</table></div></div>`).join('')}
 function renderMonth(){const[y,m]=currentMonth.split('-').map(Number),last=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay();let cells='';for(let i=0;i<first;i++)cells+='<div></div>';for(let d=1;d<=last;d++){const date=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,hs=db.holidays.filter(h=>h.date===date),ts=db.tasks.filter(t=>t.date===date&&t.status!=='cancelled'),leave=db.attendance.filter(a=>a.date===date&&a.type!=='出勤'),cls=hs.some(h=>h.type==='statutory')?'holiday-bg holiday-statutory-cell':hs.some(h=>h.type==='company')?'company-bg holiday-company-cell':'';cells+=`<div class="daycell ${cls}" data-date="${date}"><div class=daynum>${d}</div>${hs.map(h=>`<div class="pill holiday-mark ${h.type==='statutory'?'holiday statutory-mark':'companyHoliday company-mark'}">${h.type==='statutory'?'法定休日':'所定休日'}</div>`).join('')}${leave.map(a=>`<div class="pill companyHoliday">${empName(a.employeeId)} ${a.type}</div>`).join('')}${ts.map(t=>`<div class="month-taskbar ${taskClass(t)} ${t.urgent?'urgent':''}" data-month-task="${t.id}"><div class=month-task-title>${t.urgent?'🔴 ':''}${t.id} ${taskDisplayName(t)}</div><div class=month-task-team><span class=month-main>主 ${empName(t.employeeId)}</span>${(t.passengerIds||[]).length?`<span class=month-helper>補 ${(t.passengerIds||[]).map(empName).join('・')}</span>`:''}</div></div>`).join('')}</div>`}$('month').innerHTML=`<div class=panel><div class=daynav><button id=mPrev class=ghost>←前月</button><div class=datebox>${y}年${m}月</div><button id=mNext class=ghost>翌月→</button></div><div class=calendar-scroll><div class=calendar-head>${['日','月','火','水','木','金','土'].map(x=>`<div>${x}</div>`).join('')}</div><div class=calendar>${cells}</div></div></div>`;$('mPrev').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()-1);currentMonth=d.toISOString().slice(0,7);renderMonth()};$('mNext').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()+1);currentMonth=d.toISOString().slice(0,7);renderMonth()};document.querySelectorAll('[data-date]').forEach(c=>c.onclick=()=>{currentDay=c.dataset.date;showView('day');renderDay()});document.querySelectorAll('[data-month-task]').forEach(b=>b.onclick=e=>{e.stopPropagation();taskModal(db.tasks.find(t=>t.id===b.dataset.monthTask))})}

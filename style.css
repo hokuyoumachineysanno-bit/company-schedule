@@ -371,3 +371,17 @@ body.bar-drag-active .gantt{cursor:grabbing!important}
 /* 休日色はグレー背景より優先 */
 .daycell.holiday-statutory-cell{background:#ffdede!important}
 .daycell.holiday-company-cell{background:#eadfff!important}
+
+/* v2.0.17 案件台帳ステータス可視化 */
+.project-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;padding:12px;margin:10px 0 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px}
+.project-filter-grid label{display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px}
+.project-filter-actions{display:flex;align-items:end}.project-filter-actions button{width:100%}
+.project-stage-legend{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.project-stage-badge,.project-status-chip{display:inline-block;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:800;margin-right:5px}
+.project-status-chip{background:#fff;border:1px solid #cbd5e1;color:#475569}
+.stage-prequote{background:#e2e8f0;color:#334155}.stage-quoted{background:#fef3c7;color:#92400e}.stage-ordered{background:#dbeafe;color:#1d4ed8}.stage-execution{background:#dcfce7;color:#166534}.stage-after{background:#ede9fe;color:#6d28d9}.stage-corrective{background:#fee2e2;color:#991b1b}.stage-done{background:#e5e7eb;color:#475569}
+.project-card{border-left:7px solid #cbd5e1}.project-stage-prequote{border-left-color:#94a3b8}.project-stage-quoted{border-left-color:#f59e0b}.project-stage-ordered{border-left-color:#3b82f6}.project-stage-execution{border-left-color:#22c55e}.project-stage-after{border-left-color:#8b5cf6}.project-stage-corrective{border-left-color:#ef4444}.project-stage-done{border-left-color:#64748b}
+.project-card-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}.project-card-head h4{margin:0 0 5px}
+.project-result-head{display:flex;gap:12px;align-items:center;margin:6px 0 10px}
+@media(max-width:850px){.project-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.project-filter-grid{grid-template-columns:1fr}.project-card{padding:10px}.project-card .actions{display:grid;grid-template-columns:1fr 1fr}.project-card .actions button{min-height:42px}.project-card .actions .primary{grid-column:1/-1}.project-stage-legend{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}.project-stage-badge{white-space:nowrap}}
