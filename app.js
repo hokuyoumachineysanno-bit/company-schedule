@@ -61,6 +61,7 @@ function applyTimeSnapshotToPortal(){
   }
 
   localStorage.setItem(KEY,JSON.stringify(db));
+  try{window.PortalCloudSync?.notifyLocalSave?.('time-snapshot')}catch(e){console.warn('クラウド同期通知失敗',e)}
   return true;
 }
 
@@ -79,7 +80,10 @@ window.addEventListener('pageshow',()=>{
 applyTimeSnapshotToPortal();
 
 let currentDay='2026-09-09',currentMonth='2026-09',masterType='employees',dayRange='all';
-const save=()=>{localStorage.setItem(KEY,JSON.stringify(db));};
+const save=()=>{
+  localStorage.setItem(KEY,JSON.stringify(db));
+  try{window.PortalCloudSync?.notifyLocalSave?.('portal-save')}catch(e){console.warn('クラウド同期通知失敗',e)}
+};
 const emp=id=>db.employees.find(x=>x.id===id),veh=id=>db.vehicles.find(x=>x.id===id),cust=id=>db.customers.find(x=>x.id===id),proj=id=>db.projects.find(x=>x.id===id);
 const isProjectArchived=p=>['完了'].includes(p?.status);
 const activeProjects=()=>db.projects.filter(p=>!isProjectArchived(p));

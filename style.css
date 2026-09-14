@@ -408,3 +408,11 @@ body.bar-drag-active .gantt{cursor:grabbing!important}
  .header-auth{width:100%;justify-content:flex-start;margin-top:8px}
  .login-user{max-width:100%}
 }
+
+/* v2.1.1 Firestore sync */
+.cloud-status{font-size:12px;padding:6px 9px;border-radius:999px;background:#eef2f7;color:#475569;white-space:nowrap}
+.cloud-status.ok{background:#ecfdf5;color:#047857}
+.cloud-status.warn{background:#fff7ed;color:#c2410c}
+.cloud-status.error{background:#fef2f2;color:#b91c1c}
+.cloud-init-btn{font-size:12px;padding:7px 10px;white-space:nowrap}
+@media(max-width:760px){.header-auth{gap:6px;flex-wrap:wrap}.cloud-status{order:5;width:100%;text-align:center}.cloud-init-btn{width:100%}}
