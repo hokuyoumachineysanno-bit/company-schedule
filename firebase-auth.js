@@ -12,7 +12,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBIlE1txZ YXdCc0Jt_siYYW0JtAi0aCKgU".replace(/ /g,''),
+  apiKey: "AIzaSyBI1eLtxZYXdCc0Jt_siYYW0JtAi0aCKgU",
   authDomain: "portal-31d10.firebaseapp.com",
   projectId: "portal-31d10",
   storageBucket: "portal-31d10.firebasestorage.app",
