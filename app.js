@@ -48,16 +48,26 @@ function applyTimeSnapshotToPortal(){
   db.companyCalendar=(cache.calendar||[]).map(x=>({...x}));
   db.timeSnapshotUpdatedAt=cache.exportedAt||null;
 
-  // TIME暦をポータル休日表示へ変換
-  if(Array.isArray(cache.calendar) && cache.calendar.length){
-    db.holidays=cache.calendar
+  // TIME暦をポータル休日表示へ反映。
+  // ポータル手入力の休日は保持し、TIME由来分だけ差し替える。
+  if(Array.isArray(cache.calendar)){
+    const manual=(db.holidays||[]).filter(h=>
+      h?.source!=='time' && !String(h?.id||'').startsWith('TIME-CAL-')
+    );
+    const timeHolidays=cache.calendar
       .filter(x=>/法定休日|所定休日|会社休業日/.test(x.type||''))
       .map((x,i)=>({
         id:x.id||`TIME-CAL-${x.date}-${i}`,
         date:x.date,
         type:(x.type||'').includes('法定')?'statutory':'company',
-        name:x.name||x.type
+        name:x.name||x.type,
+        source:'time'
       }));
+    const keys=new Set(manual.map(h=>`${h.date}|${h.type}`));
+    db.holidays=[
+      ...manual,
+      ...timeHolidays.filter(h=>!keys.has(`${h.date}|${h.type}`))
+    ];
   }
 
   localStorage.setItem(KEY,JSON.stringify(db));
@@ -1114,12 +1124,12 @@ function holidayModal(h){
   </select></div>
  </div>`,()=>{
   const type=$('mhType').value;
-  const n={id:r.id,date:$('mhDate').value,type,name:type==='statutory'?'法定休日':'所定休日'};
+  const n={id:r.id,date:$('mhDate').value,type,name:type==='statutory'?'法定休日':'所定休日',source:'portal'};
   if(h)db.holidays[db.holidays.findIndex(x=>x.id===h.id)]=n;else db.holidays.push(n);
   save();closeModal();renderAll();showView('holidays')
  })
 }
-function renderHolidays(){$('holidays').innerHTML=`<div class=panel><div class=daynav><h3>会社カレンダー</h3><button id=hAdd class=primary>＋休日追加</button></div><div class=tablewrap><table><tr><th>日付</th><th>区分</th><th>名称</th><th></th></tr>${db.holidays.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>`<tr><td>${h.date}</td><td>${h.type==='statutory'?'法定休日':'所定休日'}</td><td>${h.name}</td><td><button class=ghost data-he="${h.id}">編集</button> <button class=ghost data-hd="${h.id}">削除</button></td></tr>`).join('')}</table></div></div>`;$('hAdd').onclick=()=>holidayModal(null);document.querySelectorAll('[data-he]').forEach(b=>b.onclick=()=>holidayModal(db.holidays.find(h=>h.id===b.dataset.he)));document.querySelectorAll('[data-hd]').forEach(b=>b.onclick=()=>{db.holidays=db.holidays.filter(h=>h.id!==b.dataset.hd);save();renderAll();showView('holidays')})}
+function renderHolidays(){$('holidays').innerHTML=`<div class=panel><div class=daynav><div><h3>会社カレンダー</h3><div class=small>ポータル追加分は保存されます。TIME由来分はTIME取込時に更新されます。</div></div><button id=hAdd class=primary>＋休日追加</button></div><div class=tablewrap><table><tr><th>日付</th><th>区分</th><th>名称</th><th>登録元</th><th></th></tr>${db.holidays.sort((a,b)=>a.date.localeCompare(b.date)).map(h=>`<tr><td>${h.date}</td><td>${h.type==='statutory'?'法定休日':'所定休日'}</td><td>${h.name}</td><td>${h.source==='time'?'TIME':'ポータル'}</td><td>${h.source==='time'?'<span class=small>TIMEで編集</span>':`<button class=ghost data-he="${h.id}">編集</button> <button class=ghost data-hd="${h.id}">削除</button>`}</td></tr>`).join('')}</table></div></div>`;$('hAdd').onclick=()=>holidayModal(null);document.querySelectorAll('[data-he]').forEach(b=>b.onclick=()=>holidayModal(db.holidays.find(h=>h.id===b.dataset.he)));document.querySelectorAll('[data-hd]').forEach(b=>b.onclick=()=>{db.holidays=db.holidays.filter(h=>h.id!==b.dataset.hd);save();renderAll();showView('holidays')})}
 function renderBackup(){$('backup').innerHTML=`<div class=grid2><div class=panel><h3>バックアップ</h3><p><button id=exportBtn class=primary>JSONを書き出す</button></p></div><div class=panel><h3>復元</h3><input id=importFile class=fileinput type=file accept=".json,application/json"><p><button id=importBtn class=primary>復元</button></p></div></div>`;$('exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='company_portal_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(u)};$('importBtn').onclick=()=>{const f=$('importFile').files[0];if(!f)return alert('ファイルを選択');const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(confirm('現在のデータを上書きしますか？')){db=x;save();renderAll();showView('dashboard')}}catch(e){alert('読込失敗')}};r.readAsText(f)}}
 function renderAll(){renderSummary();renderDashboard();renderProjects();renderYear();renderQuarter();renderMonth();renderDay();renderAttendance();renderPending();renderMasters();renderHolidays();renderBackup()}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showView(b.dataset.view));$('resetBtn').onclick=()=>{if(confirm('初期データへ戻しますか？')){localStorage.removeItem(KEY);db=JSON.parse(JSON.stringify(seed));db.tasks.forEach(t=>{t.passengerIds=[];t.travelKind='';t.category=(['設計','見積','社内製作','段取り','整備'].includes(t.type)?'社内案件':'客先案件');t.urgent=false;t.history=[]});save();renderAll();showView('dashboard')}};renderAll();
@@ -1128,3 +1138,19 @@ if(requestedPortalView&&document.getElementById(requestedPortalView))showView(re
 window.addEventListener('pageshow',()=>{
   
 });
+
+function updatePortalClock(){
+  const el=document.getElementById('portalNowClock');
+  if(!el)return;
+  const now=new Date();
+  const wd=['日','月','火','水','木','金','土'][now.getDay()];
+  const y=now.getFullYear();
+  const m=String(now.getMonth()+1).padStart(2,'0');
+  const d=String(now.getDate()).padStart(2,'0');
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mm=String(now.getMinutes()).padStart(2,'0');
+  const ss=String(now.getSeconds()).padStart(2,'0');
+  el.innerHTML=`<span class="now-date">${y}/${m}/${d}（${wd}）</span><span class="now-time">${hh}:${mm}:${ss}</span>`;
+}
+updatePortalClock();
+setInterval(updatePortalClock,1000);

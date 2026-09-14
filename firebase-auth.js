@@ -50,8 +50,22 @@ let unsubscribeState=null;
 let uploadTimer=null;
 let applyingRemote=false;
 let lastUploadedJson='';
-const clientId=sessionStorage.getItem('portalCloudClientId') || crypto.randomUUID();
-sessionStorage.setItem('portalCloudClientId',clientId);
+function makeClientId(){
+  try{
+    if(globalThis.crypto && typeof globalThis.crypto.randomUUID==='function'){
+      return globalThis.crypto.randomUUID();
+    }
+  }catch(e){}
+  return 'portal-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+}
+let clientId='';
+try{
+  clientId=sessionStorage.getItem('portalCloudClientId')||makeClientId();
+  sessionStorage.setItem('portalCloudClientId',clientId);
+}catch(e){
+  console.warn('sessionStorage unavailable; using temporary client id',e);
+  clientId=makeClientId();
+}
 
 function status(text,isError=false){
   statusEl.textContent=text||'';
@@ -203,27 +217,19 @@ await setPersistence(auth,browserLocalPersistence);
 try{await getRedirectResult(auth)}catch(e){console.warn(e);status(authErrorMessage(e),true)}
 
 
-function preferRedirectLogin(){
-  const ua=navigator.userAgent||'';
-  return /Android|iPhone|iPad|iPod/i.test(ua)
-    || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-}
-
 loginBtn.addEventListener('click',async()=>{
   loginBtn.disabled=true;status('Googleログインを開いています…');
   try{
-    // Mobile browsers are much more reliable with redirect than popup.
-    if(preferRedirectLogin()){
+    // v2.1.0cでPC・スマホ双方で動作確認済みの方式を優先。
+    await signInWithPopup(auth,provider);
+  }catch(e){
+    console.warn('popup login failed',e);
+    if(['auth/popup-blocked','auth/operation-not-supported-in-this-environment'].includes(e?.code)){
       await signInWithRedirect(auth,provider);
       return;
     }
-    await signInWithPopup(auth,provider);
-  }catch(e){
-    if(['auth/popup-blocked','auth/operation-not-supported-in-this-environment'].includes(e?.code)){
-      await signInWithRedirect(auth,provider);return;
-    }
-    console.error('login error',e);
-    status(authErrorMessage(e),true);loginBtn.disabled=false;
+    status(authErrorMessage(e),true);
+    loginBtn.disabled=false;
   }
 });
 
@@ -241,13 +247,13 @@ onAuthStateChanged(auth,async user=>{
   }
 
   currentUser=user;
-  status('利用権限を確認しています…');
+  status(`Googleログイン済み：${user.email||user.displayName||'アカウント'} / 利用権限を確認しています…`);
 
   try{
     const allowed=await verifyActiveUser(user);
     if(!allowed){
       await signOut(auth);
-      status('このGoogleアカウントはポータル利用許可されていません。',true);
+      status(`このGoogleアカウント（${user.email||user.uid}）はポータル利用許可されていません。`,true);
       loginBtn.disabled=false;
       return;
     }
