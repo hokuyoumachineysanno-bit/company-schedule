@@ -202,14 +202,27 @@ cloudInitBtn?.addEventListener('click',async()=>{
 await setPersistence(auth,browserLocalPersistence);
 try{await getRedirectResult(auth)}catch(e){console.warn(e);status(authErrorMessage(e),true)}
 
+
+function preferRedirectLogin(){
+  const ua=navigator.userAgent||'';
+  return /Android|iPhone|iPad|iPod/i.test(ua)
+    || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+}
+
 loginBtn.addEventListener('click',async()=>{
   loginBtn.disabled=true;status('Googleログインを開いています…');
   try{
+    // Mobile browsers are much more reliable with redirect than popup.
+    if(preferRedirectLogin()){
+      await signInWithRedirect(auth,provider);
+      return;
+    }
     await signInWithPopup(auth,provider);
   }catch(e){
     if(['auth/popup-blocked','auth/operation-not-supported-in-this-environment'].includes(e?.code)){
       await signInWithRedirect(auth,provider);return;
     }
+    console.error('login error',e);
     status(authErrorMessage(e),true);loginBtn.disabled=false;
   }
 });
@@ -226,8 +239,10 @@ onAuthStateChanged(auth,async user=>{
     portal.classList.add('auth-hidden');gate.classList.remove('auth-hidden');
     loginBtn.disabled=false;status('ログインしてください');return;
   }
+
   currentUser=user;
-  status('利用権限とクラウドデータを確認しています…');
+  status('利用権限を確認しています…');
+
   try{
     const allowed=await verifyActiveUser(user);
     if(!allowed){
@@ -236,7 +251,17 @@ onAuthStateChanged(auth,async user=>{
       loginBtn.disabled=false;
       return;
     }
+  }catch(e){
+    console.error('user permission check failed',e);
+    status(`利用権限の確認に失敗しました${e?.code?`（${e.code}）`:''}。ページを再読み込みしてください。`,true);
+    setCloudStatus('利用権限確認失敗','error');
+    loginBtn.disabled=false;
+    return;
+  }
 
+  // Once the user is approved, do not trap them behind the login screen
+  // just because Firestore synchronization is temporarily unavailable.
+  try{
     const cloudSnap=await getCloudState();
     if(cloudSnap){
       cloudDocExists=true;
@@ -252,15 +277,22 @@ onAuthStateChanged(auth,async user=>{
       setCloudStatus('クラウド未登録','warn');
       cloudInitBtn.hidden=false;
     }
+  }catch(e){
+    console.error('cloud state read failed',e);
+    cloudDocExists=false;
+    setCloudStatus(`クラウド接続失敗${e?.code?`（${e.code}）`:''}`,'error');
+    cloudInitBtn.hidden=true;
+  }
 
+  try{
     await loadPortal();
     document.getElementById('loginUser').textContent=user.email||user.displayName||'ログイン中';
-    gate.classList.add('auth-hidden');portal.classList.remove('auth-hidden');
+    gate.classList.add('auth-hidden');
+    portal.classList.remove('auth-hidden');
     status('');
     if(cloudDocExists)startRealtime();
   }catch(e){
     console.error(e);
-    status(authErrorMessage(e),true);
-    setCloudStatus('クラウド接続失敗','error');
+    status('ポータルの読み込みに失敗しました。ページを再読み込みしてください。',true);
   }
 });
