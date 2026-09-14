@@ -42,7 +42,7 @@ function status(text,isError=false){
 function authErrorMessage(err){
   const c=err?.code||'';
   if(c.includes('unauthorized-domain'))return 'このURLがFirebaseの承認済みドメインに登録されていません。';
-  if(c.includes('popup-closed-by-user'))return 'ログイン画面が閉じられました。もう一度お試しください。';
+  if(c.includes('popup-closed-by-user'))return 'Googleログインが完了しませんでした。もう一度お試しください。';
   if(c.includes('popup-blocked'))return 'ログイン画面がブラウザにブロックされました。';
   if(c.includes('network-request-failed'))return 'ネットワーク接続を確認してください。';
   return `ログインに失敗しました${c?`（${c}）`:''}`;
@@ -92,15 +92,37 @@ async function initCloud(user){
 // IMPORTANT:
 // Attach the click handler before any async persistence / redirect processing.
 // This prevents mobile browsers from showing a dead login button if an async init fails.
+
+function isMobileBrowser(){
+  const ua=navigator.userAgent||'';
+  if(/Android|iPhone|iPad|iPod/i.test(ua)) return true;
+  try{
+    return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 900);
+  }catch(e){
+    return false;
+  }
+}
+
 loginBtn?.addEventListener('click', async ()=>{
   loginBtn.disabled=true;
   status('Googleログインを開いています…');
   try{
+    // Mobile Safari/Chrome are more reliable with full-page redirect.
+    if(isMobileBrowser()){
+      sessionStorage.setItem('portalLoginRedirectPending','1');
+      await signInWithRedirect(auth,provider);
+      return;
+    }
+
+    // Desktop keeps the popup flow.
     await signInWithPopup(auth,provider);
   }catch(e){
-    console.warn('popup login failed',e);
+    console.warn('login failed',e);
+
+    // If desktop popup is blocked, fall back to redirect.
     if(['auth/popup-blocked','auth/operation-not-supported-in-this-environment'].includes(e?.code)){
       try{
+        sessionStorage.setItem('portalLoginRedirectPending','1');
         await signInWithRedirect(auth,provider);
         return;
       }catch(e2){
@@ -125,9 +147,16 @@ setPersistence(auth,browserLocalPersistence).catch(e=>{
   console.warn('auth persistence setup failed',e);
 });
 
-getRedirectResult(auth).catch(e=>{
+getRedirectResult(auth).then(result=>{
+  try{sessionStorage.removeItem('portalLoginRedirectPending')}catch(e){}
+  if(result?.user){
+    status('Googleログインに成功しました。ポータルを開いています…');
+  }
+}).catch(e=>{
   console.warn('redirect result failed',e);
+  try{sessionStorage.removeItem('portalLoginRedirectPending')}catch(e2){}
   status(authErrorMessage(e),true);
+  loginBtn.disabled=false;
 });
 
 onAuthStateChanged(auth, async user=>{
