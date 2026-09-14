@@ -3,16 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>社内業務ポータル v2.0.17</title>
-<link rel="stylesheet" href="style.css?v=2.0.17-project-ledger">
+<title>社内業務ポータル v2.1.0</title>
+<link rel="stylesheet" href="style.css?v=2.1.0-login">
 </head>
 <body>
+<div id="authGate" class="auth-gate">
+  <div class="auth-card">
+    <div class="auth-mark">社内業務ポータル</div>
+    <h1>Googleアカウントでログイン</h1>
+    <p>PC・スマホ共通の社内ポータルです。</p>
+    <button id="googleLoginBtn" class="auth-login-btn" type="button">Googleでログイン</button>
+    <div id="authStatus" class="auth-status">ログインしてください</div>
+    <div class="auth-note">v2.1.0 はログイン動作確認版です。共有データのFirestore移行は次版で行います。</div>
+  </div>
+</div>
+<div id="portalApp" class="portal-app auth-hidden">
 <header>
   <div>
     <div class="brand">社内業務ポータル</div>
-    <div class="sub">案件・予定・勤怠・社員・車両・顧客を共通キーで管理　v1.1.1 実機テスト版</div>
+    <div class="sub">案件・予定・勤怠・社員・車両・顧客を共通キーで管理　v2.1.0 Googleログイン確認版</div>
   </div>
-  <button id="resetBtn" class="ghost">初期データへ戻す</button>
+  <div class="header-auth">
+    <span id="loginUser" class="login-user"></span>
+    <button id="logoutBtn" class="ghost" type="button">ログアウト</button>
+    <button id="resetBtn" class="ghost">初期データへ戻す</button>
+  </div>
 </header>
 
 <main>
@@ -46,10 +61,8 @@
   <section id="backup" class="view hidden"></section>
 </main>
 <div id="modal" class="modal hidden"><div class="modal-backdrop" data-modal-close></div><div class="modal-card"><div class="modal-head"><h3 id="modalTitle">編集</h3><button class="modal-x" data-modal-close>×</button></div><div id="modalBody" class="modal-body"></div><div class="modal-foot"><button id="modalCancel" class="ghost">キャンセル</button><button id="modalSave" class="primary">保存</button></div></div></div>
+</div>
 
-<script src="./portal-v81-adapter.js?v=1"></script>
-<script src="time-snapshot-import.js?v=1"></script>
-  <script src="customer-master-data.js?v=207"></script>
-  <script src="app.js?v=2.0.17-project-ledger"></script>
+<script type="module" src="firebase-auth.js?v=2.1.0"></script>
 </body>
 </html>

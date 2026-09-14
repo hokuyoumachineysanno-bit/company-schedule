@@ -385,3 +385,26 @@ body.bar-drag-active .gantt{cursor:grabbing!important}
 .project-result-head{display:flex;gap:12px;align-items:center;margin:6px 0 10px}
 @media(max-width:850px){.project-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.project-filter-grid{grid-template-columns:1fr}.project-card{padding:10px}.project-card .actions{display:grid;grid-template-columns:1fr 1fr}.project-card .actions button{min-height:42px}.project-card .actions .primary{grid-column:1/-1}.project-stage-legend{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}.project-stage-badge{white-space:nowrap}}
+
+
+/* v2.1.0 Firebase Authentication gate */
+.auth-hidden{display:none!important}
+.auth-gate{min-height:100vh;display:grid;place-items:center;padding:24px;background:#f1f5f9}
+.auth-card{width:min(460px,100%);background:#fff;border:1px solid #dbe3ee;border-radius:18px;padding:30px;box-shadow:0 18px 50px rgba(15,23,42,.12);text-align:center}
+.auth-mark{font-size:14px;font-weight:800;letter-spacing:.08em;color:#475569;margin-bottom:10px}
+.auth-card h1{font-size:24px;margin:4px 0 10px}
+.auth-card p{color:#64748b;margin:0 0 20px}
+.auth-login-btn{width:100%;padding:13px 16px;border:0;border-radius:10px;background:#2563eb;color:#fff;font-size:16px;font-weight:800;cursor:pointer}
+.auth-login-btn:hover{filter:brightness(.96)}
+.auth-login-btn:disabled{opacity:.55;cursor:wait}
+.auth-status{margin-top:14px;font-size:13px;font-weight:700;color:#475569;min-height:20px}
+.auth-status.error{color:#b91c1c}
+.auth-note{margin-top:18px;padding-top:14px;border-top:1px solid #e2e8f0;color:#64748b;font-size:12px;line-height:1.6;text-align:left}
+.header-auth{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.login-user{font-size:12px;color:#475569;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:700px){
+ .auth-card{padding:24px 18px}
+ .auth-card h1{font-size:21px}
+ .header-auth{width:100%;justify-content:flex-start;margin-top:8px}
+ .login-user{max-width:100%}
+}
