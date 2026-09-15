@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import {
   getAuth,
   GoogleAuthProvider,
@@ -9,16 +9,16 @@ import {
   signOut,
   setPersistence,
   browserLocalPersistence
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBI1eLtxZYXdCc0Jt_siYYW0JtAi0aCKgU",
-  authDomain: "portal-31d10.firebaseapp.com",
-  projectId: "portal-31d10",
-  storageBucket: "portal-31d10.firebasestorage.app",
-  messagingSenderId: "684112341136",
-  appId: "1:684112341136:web:3ade6e4459a71bb778d015",
-  measurementId: "G-Q0QZ7ZZR69"
+  apiKey: "AIzaSyAojhXeQ2af6arwoAEoiRXnCCHeyIqItuQ",
+  authDomain: "roumu-119cd.firebaseapp.com",
+  projectId: "roumu-119cd",
+  storageBucket: "roumu-119cd.firebasestorage.app",
+  messagingSenderId: "424158429227",
+  appId: "1:424158429227:web:176ebf4d76d0fb2fa36a6e",
+  measurementId: "G-DHP8D33YYM"
 };
 
 const app=initializeApp(firebaseConfig);
@@ -87,7 +87,7 @@ onAuthStateChanged(auth,async user=>{
   status('ログイン確認済み。クラウドデータを確認しています…');
 
   try{
-    cloudModule = await import('./firestore-sync.js?v=2.1.5-20260914');
+    cloudModule = await import('./firestore-sync.js?v=2.1.6-time-firebase-20260915');
     const ok = await cloudModule.initPortalCloud({
       firebaseApp: app,
       user,

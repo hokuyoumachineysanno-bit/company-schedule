@@ -5,7 +5,7 @@ import {
   setDoc,
   onSnapshot,
   serverTimestamp
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const PORTAL_KEY='companyPortalV06';
 const PRE_CLOUD_BACKUP_KEY='companyPortalV06_backup_before_cloud';
@@ -57,11 +57,12 @@ function localSummary(){
   }catch{return {projects:0,tasks:0,customers:0,employees:0}}
 }
 async function verifyActiveUser(user){
-  const snap=await getDoc(doc(firestore,'users',user.uid));
-  return snap.exists() && snap.data()?.active===true;
+  // TIME と同じ roumu-119cd の Firestore rules:
+  // /shared/** は request.auth != null で read/write 可。
+  return Boolean(user);
 }
 async function getCloudState(){
-  const snap=await getDoc(doc(firestore,'portalData','state'));
+  const snap=await getDoc(doc(firestore,'shared','portal-main'));
   return snap.exists()?snap:null;
 }
 function installCloudJson(json){
@@ -75,13 +76,13 @@ async function uploadNow(reason='save'){
   const json=currentLocalJson();
   if(!json || json===lastUploadedJson)return;
   setCloudStatus('クラウドへ保存中…','warn');
-  await setDoc(doc(firestore,'portalData','state'),{
+  await setDoc(doc(firestore,'shared','portal-main'),{
     json,
     updatedAt:serverTimestamp(),
     updatedBy:currentUser.email||currentUser.uid,
     sourceClientId,
     reason,
-    schemaVersion:'2.1.3'
+    schemaVersion:'2.1.6'
   });
   lastUploadedJson=json;
   setCloudStatus('クラウド同期済み','ok');
@@ -95,7 +96,7 @@ function scheduleUpload(reason='save'){
 }
 function startRealtime(){
   if(unsubscribeState)unsubscribeState();
-  unsubscribeState=onSnapshot(doc(firestore,'portalData','state'),snap=>{
+  unsubscribeState=onSnapshot(doc(firestore,'shared','portal-main'),snap=>{
     if(!snap.exists())return;
     cloudDocExists=true;
     if(cloudInitBtn)cloudInitBtn.hidden=true;
@@ -136,13 +137,13 @@ function bindInitialUpload(){
     try{
       localStorage.setItem(PRE_CLOUD_BACKUP_KEY,JSON.stringify({savedAt:new Date().toISOString(),json}));
       setCloudStatus('初回クラウド登録中…','warn');
-      await setDoc(doc(firestore,'portalData','state'),{
+      await setDoc(doc(firestore,'shared','portal-main'),{
         json,
         updatedAt:serverTimestamp(),
         updatedBy:currentUser.email||currentUser.uid,
         sourceClientId,
         reason:'initial-pc-upload',
-        schemaVersion:'2.1.3'
+        schemaVersion:'2.1.6'
       });
       cloudDocExists=true;
       lastUploadedJson=json;
