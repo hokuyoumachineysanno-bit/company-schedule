@@ -19,7 +19,7 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-const VERSION = "2.2.1";
+const VERSION = "2.1.8";
 const CONFIG = window.FIREBASE_CONFIG || {};
 const PORTAL_KEY = "companyPortalV06";
 const BACKUP_KEY = "companyPortalV06_backup_before_cloud";
@@ -108,7 +108,7 @@ async function loadPortal(){
   if(portalLoaded) return;
   portalLoaded=true;
   try{ await loadScript("time-snapshot-import.js?v=1"); }catch(e){ console.warn(e); }
-  await loadScript("app.js?v=2.2.1-ios-login-fallback-20260915");
+  await loadScript("app.js?v=2.1.8-mobile-reschedule-20260915");
 }
 function showPortal(){
   const loginUser=document.getElementById("loginUser");
@@ -255,13 +255,12 @@ async function googleSignIn(){
     const redirectCodes=[
       "auth/popup-blocked",
       "auth/cancelled-popup-request",
-      "auth/popup-closed-by-user",
       "auth/operation-not-supported-in-this-environment",
       "auth/web-storage-unsupported"
     ];
     if(redirectCodes.includes(error.code)){
       sessionStorage.setItem("portalGoogleRedirectPending",nowIso());
-      status("スマホのログイン画面から戻っています…");
+      status("ポップアップを使用できないため、画面遷移方式へ切り替えます…");
       await signInWithRedirect(auth,provider);
       return;
     }
