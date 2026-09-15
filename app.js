@@ -34,7 +34,7 @@ db.projects.forEach(p=>{
 });
 
 
-localStorage.setItem(KEY,JSON.stringify(db));db.tasks.forEach(t=>{if(t.status==='unassigned')t.status='pending';if(!Array.isArray(t.passengerIds))t.passengerIds=[];if(!t.category)t.category=(['設計','見積','社内製作','段取り','整備'].includes(t.type)?'社内案件':'客先案件');if(typeof t.urgent!=='boolean')t.urgent=false;if(!Array.isArray(t.history))t.history=[];});db.projects.forEach(p=>{const m={'引合':'情報','見積中':'商談中','進行中':'施工中','保留':'商談中','アフター':'アフターフォロー'};p.status=m[p.status]||p.status;if(!Array.isArray(p.history))p.history=[];});
+localStorage.setItem(KEY,JSON.stringify(db));db.tasks.forEach(t=>{if(t.status==='unassigned')t.status='pending';if(!Array.isArray(t.passengerIds))t.passengerIds=[];if(!t.category)t.category=(['設計','見積','社内製作','段取り','整備'].includes(t.type)?'社内案件':'客先案件');if(typeof t.urgent!=='boolean')t.urgent=false;if(!Array.isArray(t.history))t.history=[];});db.projects.forEach(p=>{const m={'引合':'情報','見積中':'商談中','進行中':'施工中','保留':'商談中','アフター':'アフターフォロー'};p.status=m[p.status]||p.status;if(!Array.isArray(p.history))p.history=[];if(typeof p.immediateDelivery!=='boolean')p.immediateDelivery=false;});
 function applyTimeSnapshotToPortal(){
   let cache=null;
   try{
@@ -300,7 +300,7 @@ function projectModal(p){
  const p0=p||{
   id:'PJ-2026-'+String(49+db.projects.length).padStart(4,'0'),
   customerId:firstCustomer,deliveryCustomerId:firstCustomer,billingCustomerId:firstCustomer,
-  deliveryTemp:null,billingTemp:null,name:'',status:'受注',start:currentDay,deadline:addDays(currentDay,30),
+  deliveryTemp:null,billingTemp:null,name:'',status:'受注',start:localTodayISO(),deadline:localTodayISO(),immediateDelivery:false,
   hours:8,people:1,ownerId:activeEmployees()[0]?.id||'',note:''
  };
  p0.deliveryCustomerId=p0.deliveryCustomerId||p0.customerId||firstCustomer;
@@ -324,22 +324,24 @@ function projectModal(p){
     <label>仮の納品先住所</label><input id=mpDeliveryTempAddress value="${p0.deliveryTemp?.address||''}" placeholder="分かる範囲で入力">
    </div>
 
-   <div style="grid-column:1/-1"><label class=checkline><input type=checkbox id=mpSameBilling ${sameBilling?'checked':''}> 支払先は納品先と同じ</label></div>
+   <div style="grid-column:1/-1"><label class=checkline><input type=checkbox id=mpSameBilling ${sameBilling?'checked':''}> 請求先は納品先と同じ</label></div>
    <div id=billingChoice style="grid-column:1/-1;${sameBilling?'display:none':''}">
-    <label class=checkline><input type=checkbox id=mpBillingTemp ${billingTemp?'checked':''}> 支払先を仮入力する</label>
+    <label class=checkline><input type=checkbox id=mpBillingTemp ${billingTemp?'checked':''}> 請求先を仮入力する</label>
     <div id=billingMasterArea style="${billingTemp?'display:none':''}">
-     <label>支払先検索（代理店など）</label><input id=mpBillingSearch placeholder="コード・顧客名・住所で検索">
-     <label>支払先</label><select id=mpBillingCustomer>${customerOptions(p0.billingCustomerId)}</select>
+     <label>請求先検索（代理店など）</label><input id=mpBillingSearch placeholder="コード・顧客名・住所で検索">
+     <label>請求先</label><select id=mpBillingCustomer>${customerOptions(p0.billingCustomerId)}</select>
     </div>
     <div id=billingTempArea style="${billingTemp?'':'display:none'}">
-     <label>仮の支払先名</label><input id=mpBillingTempName value="${p0.billingTemp?.name||''}" placeholder="例：△△商事">
-     <label>仮の支払先住所</label><input id=mpBillingTempAddress value="${p0.billingTemp?.address||''}" placeholder="任意">
+     <label>仮の請求先名</label><input id=mpBillingTempName value="${p0.billingTemp?.name||''}" placeholder="例：△△商事">
+     <label>仮の請求先住所</label><input id=mpBillingTempAddress value="${p0.billingTemp?.address||''}" placeholder="任意">
     </div>
    </div>
 
    <div><label>案件名</label><input id=mpName value="${p0.name}"></div>
    <div><label>施工予定日</label><input id=mpStart type=date value="${p0.start||''}"></div>
-   <div><label>納期</label><input id=mpDeadline type=date value="${p0.deadline||''}"></div>
+   <div><label>納期</label><input id=mpDeadline type=date value="${p0.deadline||''}">
+    <label class="checkline immediate-check"><input type=checkbox id=mpImmediate ${p0.immediateDelivery?'checked':''}> 即納希望</label>
+   </div>
    <div><label>案件予定工数</label><input id=mpHours type=number min=0 step=.5 value="${p0.hours}"></div>
    <div><label>必要人員</label><input id=mpPeople type=number min=1 value="${p0.people}"></div>
    <div><label>主担当</label><select id=mpOwner>${activeEmployees().map(e=>`<option value="${e.id}" ${e.id===p0.ownerId?'selected':''}>${e.name}</option>`).join('')}</select></div>
@@ -357,18 +359,18 @@ function projectModal(p){
     billingTempObj=deliveryTempObj?{...deliveryTempObj}:null;
    }else if(useBillingTemp){
     billingTempObj={name:$('mpBillingTempName').value.trim(),address:$('mpBillingTempAddress').value.trim()};
-    if(!billingTempObj.name)return alert('仮の支払先名を入力してください');
+    if(!billingTempObj.name)return alert('仮の請求先名を入力してください');
    }else billing=$('mpBillingCustomer').value;
 
    const n={...p0,id:$('mpId').value.trim(),status:$('mpStatus').value,
     customerId:delivery,deliveryCustomerId:delivery,billingCustomerId:billing,
     deliveryTemp:deliveryTempObj,billingTemp:billingTempObj,
-    name:$('mpName').value.trim(),start:$('mpStart').value,deadline:$('mpDeadline').value,
+    name:$('mpName').value.trim(),start:$('mpStart').value,deadline:$('mpDeadline').value,immediateDelivery:$('mpImmediate').checked,
     hours:+$('mpHours').value||0,people:+$('mpPeople').value||1,
     ownerId:$('mpOwner').value,note:$('mpNote').value.trim()};
    if(!n.id||!n.name)return alert('案件IDと案件名は必須です');
    if(!n.deliveryCustomerId&&!n.deliveryTemp?.name)return alert('納品先を選択または仮入力してください');
-   if(!n.billingCustomerId&&!n.billingTemp?.name)return alert('支払先を選択または仮入力してください');
+   if(!n.billingCustomerId&&!n.billingTemp?.name)return alert('請求先を選択または仮入力してください');
    if(isEdit){
     const old=p.id,idx=db.projects.findIndex(x=>x.id===old);db.projects[idx]=n;
     db.tasks.forEach(t=>{if(t.projectId===old)t.projectId=n.id});
@@ -395,6 +397,14 @@ function projectModal(p){
    $('billingTempArea').style.display=temp?'block':'none';
   }
  };
+ const syncImmediate=()=>{
+  if(!$('mpImmediate')?.checked)return;
+  const today=localTodayISO();
+  $('mpDeadline').value=today;
+  $('mpStart').value=today;
+ };
+ $('mpImmediate')?.addEventListener('change',syncImmediate);
+ if($('mpImmediate')?.checked)syncImmediate();
  $('mpDeliveryTemp').onchange=toggleDelivery;
  $('mpSameBilling').onchange=toggleBilling;
  $('mpBillingTemp').onchange=toggleBilling;
@@ -419,10 +429,10 @@ function renderProjects(){
  const card=p=>{
   const assigned=projectAssignedHours(p),remaining=projectRemainingHours(p),stage=projectStageKey(p);
   return `<div class="project-card project-stage-${stage}">
-   <div class=project-card-head><h4>${p.id}　${p.name}</h4><div><span class="project-stage-badge stage-${stage}">${projectStageLabel(p)}</span><span class="project-status-chip">${p.status}</span>${p.deliveryTemp?.name?'<span class="badge temp-badge">仮納品先</span>':''}${p.billingTemp?.name?'<span class="badge temp-badge">仮支払先</span>':''}</div></div>
+   <div class=project-card-head><h4>${p.id}　${p.name}</h4><div><span class="project-stage-badge stage-${stage}">${projectStageLabel(p)}</span><span class="project-status-chip">${p.status}</span>${p.deliveryTemp?.name?'<span class="badge temp-badge">仮納品先</span>':''}${p.billingTemp?.name?'<span class="badge temp-badge">仮請求先</span>':''}</div></div>
    <div class=small>納品先：${deliveryCustomerId(p)||'仮'} ${deliveryCustomerName(p)||'-'}${deliveryCustomerAddress(p)?` / ${deliveryCustomerAddress(p)}`:''}</div>
-   <div class=small>支払先：${billingCustomerId(p)||'仮'} ${billingCustomerName(p)||'-'}</div>
-   <div class=small>施工予定日 ${p.start||'未定'} / 納期 ${p.deadline||'-'} / 案件工数 ${p.hours}h / 主担当 ${empName(p.ownerId)}</div>
+   <div class=small>請求先：${billingCustomerId(p)||'仮'} ${billingCustomerName(p)||'-'}</div>
+   <div class=small>施工予定日 ${p.start||'未定'} / 納期 ${p.deadline||'-'}${p.immediateDelivery?' <b class=immediate-badge>即納希望</b>':''} / 案件工数 ${p.hours}h / 主担当 ${empName(p.ownerId)}</div>
    <div class=effort-meter><b>タスク割当 ${assigned}h</b><span>未割当 ${remaining}h</span></div>
    <div class=actions><button class=ghost data-pe="${p.id}">編集</button>${!isProjectArchived(p)?`<button class=primary data-po="${p.id}">${remaining>0?`残り${remaining}hを予定に入れる`:'＋タスク追加'}</button>`:''}<button class=danger data-pd="${p.id}">削除</button></div>
   </div>`;
@@ -455,7 +465,7 @@ function renderProjects(){
  $('pfClear').onclick=()=>{projectLedgerFilter={scope:'active',stage:'all',status:'all',dateBasis:'start',from:'',to:'',sort:'stage'};rerender()};
  $('projectExcel').onclick=()=>{
   const out=rows.map(p=>[p.id,projectStageLabel(p),p.status,deliveryCustomerId(p)||'仮',deliveryCustomerName(p),billingCustomerId(p)||'仮',billingCustomerName(p),p.name,p.start||'',p.deadline||'',+p.hours||0,projectAssignedHours(p),projectRemainingHours(p),+p.people||0,empName(p.ownerId),p.note||'']);
-  exportExcelXml('案件一覧_絞込_'+new Date().toISOString().slice(0,10),'案件一覧',['案件ID','段階','ステータス','納品先コード','納品先','支払先コード','支払先','案件名','施工予定日','納期','案件予定工数h','タスク割当h','未割当h','必要人員','主担当','備考'],out);
+  exportExcelXml('案件一覧_絞込_'+new Date().toISOString().slice(0,10),'案件一覧',['案件ID','段階','ステータス','納品先コード','納品先','請求先コード','請求先','案件名','施工予定日','納期','案件予定工数h','タスク割当h','未割当h','必要人員','主担当','備考'],out);
  };
  $('addProject').onclick=()=>projectModal(null);
  document.querySelectorAll('[data-pe]').forEach(b=>b.onclick=()=>projectModal(proj(b.dataset.pe)));
@@ -923,7 +933,7 @@ function renderPending(){
     t.date||'未定',t.start||'未定',statusText(t.status)];
   });
   exportExcelXml('ペンディング一覧_'+new Date().toISOString().slice(0,10),'ペンディング一覧',
-   ['タスクID','区分','内容','案件ID','納品先コード','納品先','支払先コード','支払先','客先/所在地','予定工数h','予定枠h','主担当','日付','開始','状態'],rows);
+   ['タスクID','区分','内容','案件ID','納品先コード','納品先','請求先コード','請求先','客先/所在地','予定工数h','予定枠h','主担当','日付','開始','状態'],rows);
  };
  $('pendingAdd').onclick=()=>taskModal(null);
  bindPendingButtons();

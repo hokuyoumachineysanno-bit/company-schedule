@@ -428,3 +428,29 @@ header{position:sticky;top:0;z-index:1200;backdrop-filter:blur(10px)}
   #ppDate,#ppStart,#ppSlot,#ppEnd,#ppReason,#ppEmergency{font-size:16px;min-height:46px;width:100%}
   .time-shift-controls #ppMinus,.time-shift-controls #ppPlus{min-height:46px;flex:1}
 }
+
+/* v2.1.9 mobile overview */
+.immediate-badge{display:inline-block;padding:1px 6px;border-radius:999px;font-size:11px;border:1px solid currentColor}
+.immediate-check{margin-top:6px}
+@media (max-width:700px){
+ .calendar-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .calendar-head,.calendar{min-width:620px}
+ .calendar .daycell{min-height:96px;padding:3px}
+ .calendar .daynum{font-size:11px}
+ .month-taskbar{padding:2px 3px;margin:1px 0;border-radius:4px}
+ .month-task-title{font-size:9px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .month-task-team{font-size:8px;line-height:1.05}
+ .month-helper{display:none}
+ #month .panel{padding:6px}
+ #month .daynav{gap:4px}
+ #month .daynav button{padding:6px 7px;font-size:11px}
+ #month .datebox{font-size:13px}
+ #projects .project-card{padding:7px 8px;margin-bottom:5px}
+ #projects .project-card-head{gap:3px;align-items:flex-start}
+ #projects .project-card-head h4{font-size:12px;line-height:1.15;margin:0 0 2px}
+ #projects .project-card .small{font-size:9px;line-height:1.2;margin:1px 0}
+ #projects .project-stage-badge,#projects .project-status-chip,#projects .badge{font-size:8px;padding:1px 3px}
+ #projects .effort-meter{font-size:9px;padding:2px 0}
+ #projects .actions{gap:3px;margin-top:4px}
+ #projects .actions button{padding:4px 6px;font-size:9px;min-height:28px}
+}
