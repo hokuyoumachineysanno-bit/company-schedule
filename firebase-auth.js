@@ -19,7 +19,7 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-const VERSION = "2.1.7";
+const VERSION = "2.1.8";
 const CONFIG = window.FIREBASE_CONFIG || {};
 const PORTAL_KEY = "companyPortalV06";
 const BACKUP_KEY = "companyPortalV06_backup_before_cloud";
@@ -108,7 +108,7 @@ async function loadPortal(){
   if(portalLoaded) return;
   portalLoaded=true;
   try{ await loadScript("time-snapshot-import.js?v=1"); }catch(e){ console.warn(e); }
-  await loadScript("app.js?v=2.1.7-time-auth-exact-20260915");
+  await loadScript("app.js?v=2.1.8-mobile-reschedule-20260915");
 }
 function showPortal(){
   const loginUser=document.getElementById("loginUser");

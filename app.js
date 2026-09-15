@@ -89,7 +89,10 @@ window.addEventListener('pageshow',()=>{
 
 applyTimeSnapshotToPortal();
 
-let currentDay='2026-09-09',currentMonth='2026-09',masterType='employees',dayRange='all';
+const _bootNow=new Date();
+let currentDay=`${_bootNow.getFullYear()}-${String(_bootNow.getMonth()+1).padStart(2,'0')}-${String(_bootNow.getDate()).padStart(2,'0')}`,
+    currentMonth=`${_bootNow.getFullYear()}-${String(_bootNow.getMonth()+1).padStart(2,'0')}`,
+    masterType='employees',dayRange='all';
 const save=()=>{
   localStorage.setItem(KEY,JSON.stringify(db));
   try{window.PortalCloudSync?.notifyLocalSave?.('portal-save')}catch(e){console.warn('クラウド同期通知失敗',e)}
@@ -630,7 +633,85 @@ function taskModal(t,presetProject=''){
   $('deleteTaskBtn').onclick=()=>{if(confirm(`${t0.id} を削除しますか？`)){db.tasks=db.tasks.filter(a=>a.id!==t0.id);save();closeModal();renderAll();showView('day')}};
  }
 }
-function postponeTask(t){const urg=db.tasks.filter(x=>x.urgent&&x.id!==t.id);openModal('タスクを日延べ',`<div class=form><div><label>現在日</label><input value="${t.date}" disabled></div><div><label>移動先</label><input id=ppDate type=date value="${addDays(t.date,1)}"></div><div><label>理由</label><select id=ppReason><option>通常変更</option><option>客先都合</option><option>社内都合</option><option>前工程遅延</option><option>緊急対応による押出し</option></select></div><div><label>原因となった緊急タスク</label><select id=ppEmergency><option value="">-</option>${urg.map(x=>`<option value="${x.id}">${x.date} ${x.id} ${taskDisplayName(x)}</option>`).join('')}</select></div></div>`,()=>{const x=db.tasks.find(a=>a.id===t.id),old=x.date,n=$('ppDate').value;if(!n)return;x.date=n;x.history=[...(x.history||[]),{at:new Date().toLocaleString('ja-JP'),text:`日延べ ${old} → ${n} / ${$('ppReason').value}${$('ppEmergency').value?' / 原因 '+$('ppEmergency').value:''}`}];x.postponeReason=$('ppReason').value;x.causedByEmergencyId=$('ppEmergency').value||'';save();currentDay=n;closeModal();renderAll();showView('day')})}
+function postponeTask(t){
+ const urg=(db.tasks||[]).filter(x=>x.urgent&&x.id!==t.id)
+   .sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(a.start||'').localeCompare(b.start||''));
+ const oldDate=t.date||'';
+ const oldStart=t.start||'08:30';
+ const slot=Math.max(.5,Math.round((+(t.slotHours??t.plannedHours)||.5)*2)/2);
+ openModal('タスクの再配置',`
+  <div class=form>
+   <div style="grid-column:1/-1" class=small>
+    <b>${t.id} ${taskDisplayName(t)}</b><br>
+    現在：${oldDate||'日付未定'} ${oldStart||''} ～ ${taskEnd(t)||''}
+   </div>
+   <div><label>代替日</label><input id=ppDate type=date value="${oldDate?addDays(oldDate,1):localTodayISO()}"></div>
+   <div><label>代替開始時間</label><input id=ppStart type=time step=1800 value="${oldStart}"></div>
+   <div><label>予定枠</label><input id=ppSlot type=number min=.5 step=.5 value="${slot}"> <span class=small>h</span></div>
+   <div><label>代替終了</label><input id=ppEnd type=time value="${calcEndTime(oldStart,slot)}" readonly></div>
+   <div><label>理由</label><select id=ppReason>
+    <option>通常変更</option><option>客先都合</option><option>社内都合</option><option>前工程遅延</option>
+    <option ${t.postponeReason==='緊急対応による押出し'?'selected':''}>緊急対応による押出し</option>
+   </select></div>
+   <div><label>原因となった緊急タスク</label><select id=ppEmergency>
+    <option value="">-</option>
+    ${urg.map(x=>`<option value="${x.id}" ${t.causedByEmergencyId===x.id?'selected':''}>${x.date} ${x.start||''} ${x.id} ${taskDisplayName(x)}</option>`).join('')}
+   </select></div>
+   <div style="grid-column:1/-1" class=time-shift-controls>
+    <button type=button id=ppMinus class=ghost>開始 −30分</button>
+    <button type=button id=ppPlus class=ghost>開始 ＋30分</button>
+    <span class=small>スマホでは時刻欄を直接選ぶか、±30分で調整できます。</span>
+   </div>
+  </div>`,()=>{
+   const x=db.tasks.find(a=>a.id===t.id);
+   if(!x)return closeModal();
+   const n=$('ppDate')?.value||'';
+   const st=$('ppStart')?.value||'';
+   const sl=Math.max(.5,Math.round((+($('ppSlot')?.value)||.5)*2)/2);
+   if(!n)return alert('代替日を設定してください。');
+   if(!st)return alert('代替開始時間を設定してください。');
+
+   const old={date:x.date||'',start:x.start||'',slotHours:+(x.slotHours??x.plannedHours)||0};
+   x.date=n;
+   x.start=snapTime30(st);
+   x.slotHours=sl;
+   x.end=calcEndTime(x.start,sl);
+   x.status=x.status==='pending'?'confirmed':(x.status||'confirmed');
+   x.postponeReason=$('ppReason')?.value||'通常変更';
+   x.causedByEmergencyId=$('ppEmergency')?.value||'';
+   x.rescheduledAt=new Date().toISOString();
+   x.history=[...(x.history||[]),{
+     at:new Date().toLocaleString('ja-JP'),
+     text:`再配置 ${old.date} ${old.start} → ${x.date} ${x.start} / ${x.slotHours}h / ${x.postponeReason}${x.causedByEmergencyId?' / 原因 '+x.causedByEmergencyId:''}`
+   }];
+   save();
+   currentDay=x.date;
+   syncMonthToDay();
+   closeModal();
+   renderAll();
+   showView('day');
+   renderDay();
+  });
+
+ const refresh=()=>{
+   if(!$('ppStart')||!$('ppSlot')||!$('ppEnd'))return;
+   $('ppStart').value=snapTime30($('ppStart').value||'08:30');
+   $('ppSlot').value=Math.max(.5,Math.round((+$('ppSlot').value||.5)*2)/2);
+   $('ppEnd').value=calcEndTime($('ppStart').value,+$('ppSlot').value||.5);
+ };
+ const shift=(mins)=>{
+   if(!$('ppStart'))return;
+   let total=Math.round(timeNum($('ppStart').value||'08:30')*60/30)*30+mins;
+   total=Math.max(0,Math.min(1410,total));
+   $('ppStart').value=`${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+   refresh();
+ };
+ $('ppStart')?.addEventListener('change',refresh);
+ $('ppSlot')?.addEventListener('change',refresh);
+ $('ppMinus')?.addEventListener('click',()=>shift(-30));
+ $('ppPlus')?.addEventListener('click',()=>shift(30));
+ refresh();
+}
 
 function pendingTasks(){
  return (db.tasks||[]).filter(t=>t.status==='pending').sort((a,b)=>

@@ -422,3 +422,9 @@ header{position:sticky;top:0;z-index:1200;backdrop-filter:blur(10px)}
 .portal-now-clock .now-date{font-size:12px;color:#64748b;font-weight:700}
 .portal-now-clock .now-time{margin-top:2px;font-size:20px;color:#0f172a;font-weight:800;letter-spacing:.5px}
 @media(max-width:760px){.portal-now-clock{order:-2;min-width:126px;padding:5px 8px}.portal-now-clock .now-date{font-size:10px}.portal-now-clock .now-time{font-size:17px}}
+
+/* v2.1.8 mobile reschedule */
+@media (max-width: 700px){
+  #ppDate,#ppStart,#ppSlot,#ppEnd,#ppReason,#ppEmergency{font-size:16px;min-height:46px;width:100%}
+  .time-shift-controls #ppMinus,.time-shift-controls #ppPlus{min-height:46px;flex:1}
+}
