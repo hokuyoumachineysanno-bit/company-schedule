@@ -443,11 +443,16 @@ function renderProjects(){
   <div class=daynav><div><h3>案件台帳</h3><p class=small>ステータス色・期間で、今どの段階に仕事が溜まっているかを見ます。</p></div>
    <div class=actions><button id=projectExcel class=ghost>絞込結果をExcel出力</button><button id=addProject class=primary>＋案件追加</button></div>
   </div>
+  <div class=project-scope-tabs>
+   <button type=button class="project-scope-tab ${f.scope==='active'?'active':''}" data-project-scope=active>進行中 <b>${activeProjects().length}</b></button>
+   <button type=button class="project-scope-tab ${f.scope==='archived'?'active':''}" data-project-scope=archived>完了・アーカイブ <b>${archivedProjects().length}</b></button>
+   <button type=button class="project-scope-tab ${f.scope==='all'?'active':''}" data-project-scope=all>すべて <b>${db.projects.length}</b></button>
+  </div>
   <div class=project-stage-legend>
-   ${PROJECT_STAGE_DEFS.filter(x=>x[0]!=='done').map(([k,l])=>`<span class="project-stage-badge stage-${k}">${l}</span>`).join('')}
+   ${PROJECT_STAGE_DEFS.map(([k,l])=>`<span class="project-stage-badge stage-${k}">${l}</span>`).join('')}
   </div>
   <div class=project-filter-grid>
-   <div><label>表示範囲</label><select id=pfScope><option value=active ${f.scope==='active'?'selected':''}>進行中</option><option value=all ${f.scope==='all'?'selected':''}>すべて</option><option value=archived ${f.scope==='archived'?'selected':''}>完了</option></select></div>
+   <div><label>表示範囲</label><select id=pfScope><option value=active ${f.scope==='active'?'selected':''}>進行中</option><option value=all ${f.scope==='all'?'selected':''}>すべて</option><option value=archived ${f.scope==='archived'?'selected':''}>完了・アーカイブ</option></select></div>
    <div><label>段階</label><select id=pfStage><option value=all>すべて</option>${stageOptions}</select></div>
    <div><label>詳細ステータス</label><select id=pfStatus><option value=all>すべて</option>${statusOptions}</select></div>
    <div><label>日付基準</label><select id=pfDateBasis><option value=start ${f.dateBasis==='start'?'selected':''}>施工予定日</option><option value=deadline ${f.dateBasis==='deadline'?'selected':''}>納期</option></select></div>
@@ -460,6 +465,7 @@ function renderProjects(){
   <div id=projectCards>${rows.length?rows.map(card).join(''):'<div class=small>条件に一致する案件はありません。</div>'}</div>
  </div>`;
  const rerender=()=>renderProjects();
+ document.querySelectorAll('[data-project-scope]').forEach(btn=>btn.onclick=()=>{projectLedgerFilter.scope=btn.dataset.projectScope;rerender()});
  ['pfScope','pfStage','pfStatus','pfDateBasis','pfSort'].forEach(id=>$(id).onchange=()=>{projectLedgerFilter[{pfScope:'scope',pfStage:'stage',pfStatus:'status',pfDateBasis:'dateBasis',pfSort:'sort'}[id]]=$(id).value;rerender()});
  ['pfFrom','pfTo'].forEach(id=>$(id).onchange=()=>{projectLedgerFilter[id==='pfFrom'?'from':'to']=$(id).value;rerender()});
  $('pfClear').onclick=()=>{projectLedgerFilter={scope:'active',stage:'all',status:'all',dateBasis:'start',from:'',to:'',sort:'stage'};rerender()};

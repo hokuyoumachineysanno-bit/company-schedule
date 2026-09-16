@@ -454,3 +454,26 @@ header{position:sticky;top:0;z-index:1200;backdrop-filter:blur(10px)}
  #projects .actions{gap:3px;margin-top:4px}
  #projects .actions button{padding:4px 6px;font-size:9px;min-height:28px}
 }
+
+/* v2.2.3 案件：完了台帳を明示 + ステータス背景色 */
+.project-scope-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 8px}
+.project-scope-tab{border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:9px;padding:8px 14px;font-weight:800;cursor:pointer}
+.project-scope-tab b{display:inline-block;min-width:22px;margin-left:5px;padding:1px 6px;border-radius:999px;background:#e2e8f0;color:#334155}
+.project-scope-tab.active{background:#0f172a;color:#fff;border-color:#0f172a}
+.project-scope-tab.active b{background:#fff;color:#0f172a}
+
+/* 左縁だけでなくカード全面を同系統の淡色にする */
+.project-card.project-stage-prequote{background:#f1f5f9;border-color:#cbd5e1;border-left-color:#94a3b8}
+.project-card.project-stage-quoted{background:#fffbeb;border-color:#fde68a;border-left-color:#f59e0b}
+.project-card.project-stage-ordered{background:#eff6ff;border-color:#bfdbfe;border-left-color:#3b82f6}
+.project-card.project-stage-execution{background:#f0fdf4;border-color:#bbf7d0;border-left-color:#22c55e}
+.project-card.project-stage-after{background:#f5f3ff;border-color:#ddd6fe;border-left-color:#8b5cf6}
+.project-card.project-stage-corrective{background:#fef2f2;border-color:#fecaca;border-left-color:#ef4444}
+.project-card.project-stage-done{background:#f3f4f6;border-color:#d1d5db;border-left-color:#64748b}
+.project-card .effort-meter{background:rgba(255,255,255,.66)}
+
+@media(max-width:700px){
+ .project-scope-tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;position:sticky;top:0;z-index:4;background:#fff;padding:5px 0}
+ .project-scope-tab{padding:7px 3px;font-size:10px}
+ .project-scope-tab b{min-width:18px;margin-left:2px;padding:1px 4px}
+}
