@@ -115,7 +115,7 @@ const PROJECT_STAGE_DEFS=[
 const projectStageKey=p=>PROJECT_STAGE_DEFS.find(x=>x[2].includes(p?.status))?.[0]||'prequote';
 const projectStageLabel=p=>PROJECT_STAGE_DEFS.find(x=>x[0]===projectStageKey(p))?.[1]||p?.status||'';
 const projectStageOrder=p=>Math.max(0,PROJECT_STAGE_DEFS.findIndex(x=>x[0]===projectStageKey(p)));
-let projectLedgerFilter={scope:'active',stage:'all',status:'all',dateBasis:'start',from:'',to:'',sort:'stage'};
+let projectLedgerFilter={scope:'active',stage:'all',status:'all',dateBasis:'start',from:'',to:'',sort:'stage',view:'sheet'};
 
 
 const empName=id=>emp(id)?.name||'未割当',vehName=id=>veh(id)?.name||'-',custName=id=>cust(id)?.name||'',activeEmployees=()=>db.employees.filter(x=>x.active).sort((a,b)=>a.order-b.order);
@@ -437,6 +437,29 @@ function renderProjects(){
    <div class=actions><button class=ghost data-pe="${p.id}">編集</button>${!isProjectArchived(p)?`<button class=primary data-po="${p.id}">${remaining>0?`残り${remaining}hを予定に入れる`:'＋タスク追加'}</button>`:''}<button class=danger data-pd="${p.id}">削除</button></div>
   </div>`;
  };
+ const sheet=()=>{
+  if(!rows.length)return '<div class=small>条件に一致する案件はありません。</div>';
+  return `<div class="project-sheet-wrap"><table class="project-sheet">
+   <thead><tr>
+    <th>案件ID</th><th>段階</th><th>詳細</th><th>納品先</th><th>案件名</th>
+    <th>施工予定</th><th>納期</th><th>予定h</th><th>割当h</th><th>残h</th><th>主担当</th><th>操作</th>
+   </tr></thead><tbody>
+   ${rows.map(p=>{
+     const stage=projectStageKey(p),assigned=projectAssignedHours(p),remaining=projectRemainingHours(p);
+     return `<tr class="project-sheet-row project-stage-${stage}">
+      <td class=nowrap><b>${p.id}</b></td>
+      <td><span class="project-stage-badge stage-${stage}">${projectStageLabel(p)}</span></td>
+      <td class=nowrap>${p.status}${p.immediateDelivery?' <b class=immediate-badge>即納</b>':''}</td>
+      <td class=project-sheet-customer>${deliveryCustomerName(p)||'-'}</td>
+      <td class=project-sheet-name><b>${p.name}</b></td>
+      <td class=nowrap>${p.start||'未定'}</td><td class=nowrap>${p.deadline||'-'}</td>
+      <td class=num>${+p.hours||0}</td><td class=num>${assigned}</td><td class="num ${remaining>0?'remaining':''}">${remaining}</td>
+      <td class=nowrap>${empName(p.ownerId)}</td>
+      <td class=nowrap><button class="ghost sheet-btn" data-pe="${p.id}">編集</button>${!isProjectArchived(p)?` <button class="primary sheet-btn" data-po="${p.id}">予定</button>`:''}</td>
+     </tr>`;
+   }).join('')}
+   </tbody></table></div>`;
+ };
  const stageOptions=PROJECT_STAGE_DEFS.map(([k,l])=>`<option value="${k}" ${f.stage===k?'selected':''}>${l}</option>`).join('');
  const statusOptions=PROJECT_STATUSES.map(x=>`<option value="${x}" ${f.status===x?'selected':''}>${x}</option>`).join('');
  $('projects').innerHTML=`<div class=panel>
@@ -461,14 +484,17 @@ function renderProjects(){
    <div><label>並び順</label><select id=pfSort><option value=stage ${f.sort==='stage'?'selected':''}>段階順</option><option value=dateAsc ${f.sort==='dateAsc'?'selected':''}>日付 古い→新しい</option><option value=dateDesc ${f.sort==='dateDesc'?'selected':''}>日付 新しい→古い</option><option value=deadline ${f.sort==='deadline'?'selected':''}>納期順</option><option value=id ${f.sort==='id'?'selected':''}>案件ID順</option></select></div>
    <div class=project-filter-actions><button id=pfClear class=ghost>条件クリア</button></div>
   </div>
-  <div class=project-result-head><b>${rows.length}件</b><span class=small>${f.from||'指定なし'} ～ ${f.to||'指定なし'}</span></div>
-  <div id=projectCards>${rows.length?rows.map(card).join(''):'<div class=small>条件に一致する案件はありません。</div>'}</div>
+  <div class=project-result-head><div><b>${rows.length}件</b><span class=small>　${f.from||'指定なし'} ～ ${f.to||'指定なし'}</span></div>
+   <div class=project-view-switch><button id=pvSheet class="${f.view!=='card'?'active':''}">一覧表</button><button id=pvCard class="${f.view==='card'?'active':''}">カード</button></div></div>
+  <div id=projectCards>${f.view==='card'?(rows.length?rows.map(card).join(''):'<div class=small>条件に一致する案件はありません。</div>'):sheet()}</div>
  </div>`;
  const rerender=()=>renderProjects();
+ $('pvSheet').onclick=()=>{projectLedgerFilter.view='sheet';rerender()};
+ $('pvCard').onclick=()=>{projectLedgerFilter.view='card';rerender()};
  document.querySelectorAll('[data-project-scope]').forEach(btn=>btn.onclick=()=>{projectLedgerFilter.scope=btn.dataset.projectScope;rerender()});
  ['pfScope','pfStage','pfStatus','pfDateBasis','pfSort'].forEach(id=>$(id).onchange=()=>{projectLedgerFilter[{pfScope:'scope',pfStage:'stage',pfStatus:'status',pfDateBasis:'dateBasis',pfSort:'sort'}[id]]=$(id).value;rerender()});
  ['pfFrom','pfTo'].forEach(id=>$(id).onchange=()=>{projectLedgerFilter[id==='pfFrom'?'from':'to']=$(id).value;rerender()});
- $('pfClear').onclick=()=>{projectLedgerFilter={scope:'active',stage:'all',status:'all',dateBasis:'start',from:'',to:'',sort:'stage'};rerender()};
+ $('pfClear').onclick=()=>{projectLedgerFilter={scope:'active',stage:'all',status:'all',dateBasis:'start',from:'',to:'',sort:'stage',view:projectLedgerFilter.view||'sheet'};rerender()};
  $('projectExcel').onclick=()=>{
   const out=rows.map(p=>[p.id,projectStageLabel(p),p.status,deliveryCustomerId(p)||'仮',deliveryCustomerName(p),billingCustomerId(p)||'仮',billingCustomerName(p),p.name,p.start||'',p.deadline||'',+p.hours||0,projectAssignedHours(p),projectRemainingHours(p),+p.people||0,empName(p.ownerId),p.note||'']);
   exportExcelXml('案件一覧_絞込_'+new Date().toISOString().slice(0,10),'案件一覧',['案件ID','段階','ステータス','納品先コード','納品先','請求先コード','請求先','案件名','施工予定日','納期','案件予定工数h','タスク割当h','未割当h','必要人員','主担当','備考'],out);
@@ -480,7 +506,40 @@ function renderProjects(){
 }
 
 function renderYear(){const ms=[7,8,9,10,11,12];$('year').innerHTML=`<div class=grid2><div class=panel><h3>年間案件</h3><div class=tablewrap><table><tr><th>案件</th>${ms.map(m=>`<th>${m}月</th>`).join('')}<th>納期</th></tr>${db.projects.map(p=>`<tr><td><b>${p.id}</b><br>${p.name}</td>${ms.map(m=>{const active=new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline);return`<td>${active?`<div class="pill confirmed">${p.status}<br>${p.hours}h/${p.people}名</div>`:''}${db.tasks.filter(t=>t.projectId===p.id&&+t.date.slice(5,7)===m).map(t=>`<div class="pill ${t.status}">${t.id} ${taskDisplayName(t)}</div>`).join('')}</td>`}).join('')}<td>${p.deadline}</td></tr>`).join('')}</table></div></div><div class=panel><h3>年間労務</h3><div class=tablewrap><table><tr><th>社員</th><th>休日</th><th>有休</th><th>就労</th><th>時間外</th><th>36協定</th></tr>${db.attendanceSummary.map(x=>`<tr><td>${empName(x.employeeId)}</td><td>${x.holidaysTaken}/${x.annualHolidays}</td><td>${x.paidLeaveTaken}</td><td>${x.annualWork}h</td><td>${x.overtime}h</td><td>${x.agreementPct}%</td></tr>`).join('')}</table></div></div></div>`}
-function renderQuarter(){$('quarter').innerHTML=[['Q3 7-9月',[7,8,9]],['Q4 10-12月',[10,11,12]]].map(([n,ms])=>`<div class=panel><h3>${n}</h3><div class=tablewrap><table><tr><th>案件</th><th>期間</th><th>工数</th><th>人員</th><th>主担当</th><th>未確定</th></tr>${db.projects.filter(p=>ms.some(m=>new Date(2026,m,0)>=new Date(p.start)&&new Date(`2026-${String(m).padStart(2,'0')}-01`)<=new Date(p.deadline))).map(p=>`<tr><td>${p.id}<br><b>${p.name}</b></td><td>${p.start}<br>～${p.deadline}</td><td>${p.hours}h</td><td>${p.people}名</td><td>${empName(p.ownerId)}</td><td>${db.tasks.filter(t=>t.projectId===p.id&&t.status!=='confirmed').length}</td></tr>`).join('')}</table></div></div>`).join('')}
+function fiscalQuarterDefs(baseDate=new Date()){
+ const y=baseDate.getFullYear(),m=baseDate.getMonth()+1,d=baseDate.getDate();
+ const fy=(m>4||(m===4&&d>=21))?y:y-1;
+ return [
+  {key:'Q1',label:'第1四半期',start:`${fy}-04-21`,end:`${fy}-07-20`},
+  {key:'Q2',label:'第2四半期',start:`${fy}-07-21`,end:`${fy}-10-20`},
+  {key:'Q3',label:'第3四半期',start:`${fy}-10-21`,end:`${fy+1}-01-20`},
+  {key:'Q4',label:'第4四半期',start:`${fy+1}-01-21`,end:`${fy+1}-04-20`}
+ ];
+}
+function renderQuarter(){
+ const qs=fiscalQuarterDefs(),today=localTodayISO();
+ const html=qs.map(q=>{
+  const current=today>=q.start&&today<=q.end;
+  const projects=db.projects.filter(p=>(p.start||'9999')<=q.end&&(p.deadline||p.start||'0000')>=q.start);
+  const atts=(db.attendance||[]).filter(a=>a.date>=q.start&&a.date<=q.end);
+  const provisional=db.tasks.filter(t=>t.date>=q.start&&t.date<=q.end&&t.status==='provisional').length;
+  const labor=(db.employees||[]).filter(e=>e.active).map(e=>{
+    const aa=atts.filter(a=>a.employeeId===e.id);
+    return {name:e.name,work:aa.reduce((n,a)=>n+(+a.work||0),0),ot:aa.reduce((n,a)=>n+(+a.overtime||0),0),
+      paid:aa.reduce((n,a)=>n+(+a.paidLeave||0),0),days:aa.filter(a=>(+a.work||0)>0).length};
+  });
+  return `<div class="panel quarter-panel ${current?'quarter-current':''}">
+   <div class=quarter-head><div><h3>${q.label} <span>${q.start.replaceAll('-','/')} ～ ${q.end.replaceAll('-','/')}</span></h3>
+   <p class=small>20日締め（21日開始）${current?'・現在の四半期':''}</p></div>
+   <div class=quarter-kpis><span>案件 <b>${projects.length}</b></span><span>仮予定 <b>${provisional}</b></span></div></div>
+   <div class=tablewrap><table class=quarter-table><thead><tr><th>社員</th><th>出勤日</th><th>就労</th><th>時間外</th><th>有休</th></tr></thead>
+   <tbody>${labor.map(x=>`<tr><td><b>${x.name}</b></td><td>${x.days}</td><td>${x.work.toFixed(1)}h</td><td>${x.ot.toFixed(1)}h</td><td>${x.paid}</td></tr>`).join('')}</tbody></table></div>
+   <details><summary>この四半期の案件 ${projects.length}件</summary><div class=tablewrap><table class=quarter-projects><tr><th>案件</th><th>ステータス</th><th>施工予定</th><th>納期</th><th>主担当</th></tr>
+   ${projects.map(p=>`<tr class="project-stage-${projectStageKey(p)}"><td><b>${p.id}</b> ${p.name}</td><td>${p.status}</td><td>${p.start||'-'}</td><td>${p.deadline||'-'}</td><td>${empName(p.ownerId)}</td></tr>`).join('')}</table></div></details>
+  </div>`;
+ }).join('');
+ $('quarter').innerHTML=`<div class=quarter-note><b>年度区分：</b>4/21開始・翌4/20終了 ／ Q1 4/21–7/20 ／ Q2 7/21–10/20 ／ Q3 10/21–1/20 ／ Q4 1/21–4/20</div>${html}`;
+}
 function renderMonth(){const[y,m]=currentMonth.split('-').map(Number),last=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay();let cells='';for(let i=0;i<first;i++)cells+='<div></div>';for(let d=1;d<=last;d++){const date=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,hs=db.holidays.filter(h=>h.date===date),ts=db.tasks.filter(t=>t.date===date&&t.status!=='cancelled'),leave=db.attendance.filter(a=>a.date===date&&a.type!=='出勤'),cls=hs.some(h=>h.type==='statutory')?'holiday-bg holiday-statutory-cell':hs.some(h=>h.type==='company')?'company-bg holiday-company-cell':'';cells+=`<div class="daycell ${cls}" data-date="${date}"><div class=daynum>${d}</div>${hs.map(h=>`<div class="pill holiday-mark ${h.type==='statutory'?'holiday statutory-mark':'companyHoliday company-mark'}">${h.type==='statutory'?'法定休日':'所定休日'}</div>`).join('')}${leave.map(a=>`<div class="pill companyHoliday">${empName(a.employeeId)} ${a.type}</div>`).join('')}${ts.map(t=>`<div class="month-taskbar ${taskClass(t)} ${t.urgent?'urgent':''}" data-month-task="${t.id}"><div class=month-task-title>${t.urgent?'🔴 ':''}${t.id} ${taskDisplayName(t)}</div><div class=month-task-team><span class=month-main>主 ${empName(t.employeeId)}</span>${(t.passengerIds||[]).length?`<span class=month-helper>補 ${(t.passengerIds||[]).map(empName).join('・')}</span>`:''}</div></div>`).join('')}</div>`}$('month').innerHTML=`<div class=panel><div class=daynav><button id=mPrev class=ghost>←前月</button><div class=datebox>${y}年${m}月</div><button id=mNext class=ghost>翌月→</button></div><div class=calendar-scroll><div class=calendar-head>${['日','月','火','水','木','金','土'].map(x=>`<div>${x}</div>`).join('')}</div><div class=calendar>${cells}</div></div></div>`;$('mPrev').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()-1);currentMonth=d.toISOString().slice(0,7);renderMonth()};$('mNext').onclick=()=>{let d=new Date(currentMonth+'-01');d.setMonth(d.getMonth()+1);currentMonth=d.toISOString().slice(0,7);renderMonth()};document.querySelectorAll('[data-date]').forEach(c=>c.onclick=()=>{currentDay=c.dataset.date;showView('day');renderDay()});document.querySelectorAll('[data-month-task]').forEach(b=>b.onclick=e=>{e.stopPropagation();taskModal(db.tasks.find(t=>t.id===b.dataset.monthTask))})}
 function rangeDef(){
  if(dayRange==='am')return{s:0,e:12,h:Array.from({length:12},(_,i)=>i),cols:12};

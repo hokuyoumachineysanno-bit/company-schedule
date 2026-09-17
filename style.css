@@ -477,3 +477,33 @@ header{position:sticky;top:0;z-index:1200;backdrop-filter:blur(10px)}
  .project-scope-tab{padding:7px 3px;font-size:10px}
  .project-scope-tab b{min-width:18px;margin-left:2px;padding:1px 4px}
 }
+
+/* v2.2.4 案件台帳: Excelライクな俯瞰一覧 */
+.project-view-switch{display:flex;gap:4px}
+.project-view-switch button{border:1px solid #cbd5e1;background:#fff;border-radius:7px;padding:5px 10px;font-weight:800;cursor:pointer}
+.project-view-switch button.active{background:#0f172a;color:#fff;border-color:#0f172a}
+.project-sheet-wrap{overflow:auto;border:1px solid #cbd5e1;border-radius:8px;background:#fff}
+.project-sheet{border-collapse:separate;border-spacing:0;min-width:1180px;width:100%;font-size:11px}
+.project-sheet th{position:sticky;top:0;z-index:2;background:#e2e8f0;color:#334155;padding:6px 7px;border-right:1px solid #cbd5e1;border-bottom:1px solid #94a3b8;white-space:nowrap;text-align:left}
+.project-sheet td{padding:5px 7px;border-right:1px solid rgba(148,163,184,.45);border-bottom:1px solid rgba(148,163,184,.45);vertical-align:middle}
+.project-sheet-row.project-stage-prequote td{background:#f1f5f9}.project-sheet-row.project-stage-quoted td{background:#fffbeb}
+.project-sheet-row.project-stage-ordered td{background:#eff6ff}.project-sheet-row.project-stage-execution td{background:#f0fdf4}
+.project-sheet-row.project-stage-after td{background:#f5f3ff}.project-sheet-row.project-stage-corrective td{background:#fef2f2}
+.project-sheet-row.project-stage-done td{background:#f3f4f6}
+.project-sheet .num{text-align:right;font-variant-numeric:tabular-nums}.project-sheet .remaining{font-weight:900}
+.project-sheet-name{min-width:170px}.project-sheet-customer{min-width:150px}.nowrap{white-space:nowrap}
+.sheet-btn{min-height:28px!important;padding:3px 7px!important;font-size:10px!important}
+
+/* v2.2.4 四半期: 20日締め統一 */
+.quarter-note{margin-bottom:10px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:9px;background:#f8fafc;font-size:12px}
+.quarter-panel{margin-bottom:12px}.quarter-current{box-shadow:inset 4px 0 0 #2563eb}
+.quarter-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.quarter-head h3{margin:0}.quarter-head h3 span{font-size:12px;font-weight:600;color:#64748b}
+.quarter-kpis{display:flex;gap:6px}.quarter-kpis span{background:#f1f5f9;border-radius:8px;padding:5px 8px;font-size:11px}
+.quarter-table,.quarter-projects{font-size:11px}.quarter-panel details{margin-top:8px}.quarter-panel summary{cursor:pointer;font-weight:800;font-size:12px}
+@media(max-width:700px){
+ #projects .project-sheet-wrap{margin-left:-8px;margin-right:-8px;border-radius:0}
+ .project-sheet{font-size:10px;min-width:1050px}.project-sheet th,.project-sheet td{padding:4px 5px}
+ .project-result-head{align-items:center}.project-view-switch button{padding:5px 8px;font-size:10px}
+ .quarter-head{display:block}.quarter-kpis{margin-top:6px}.quarter-note{font-size:10px}
+}
